@@ -1,0 +1,12 @@
+COSMO 0.1.0 - Android 8.0 ve üzeri
+
+1. COSMO-v0.1.0-debug.apk dosyasını telefonda açıp kur.
+2. COSMO içinde Türkçe modeli indir (yaklaşık 35 MB).
+3. Dinlemeyi başlat; mikrofon ve bildirim izinlerini ver.
+4. Asistan, saat kaç de. COSMO algılanmazsa Asistan çağrısını kullan.
+5. Durdurmak için bildirimde Dinlemeyi durdur düğmesine bas.
+
+Konuşan yanıtlar için Android ayarlarından çevrimdışı Türkçe metin okuma sesi yüklenmelidir.
+Fener ve gezinme izinleri isteğe bağlıdır. Android sınırsız telefon erişimi vermez.
+Bu geliştirme sürümünde gerçek telefon mikrofonu ve ekran kapalı çalışma henüz denenmedi.
+Ayrıntılar kaynak arşivindeki README.md ve VALIDATION.md dosyalarındadır.

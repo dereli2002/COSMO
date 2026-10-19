@@ -1,0 +1,22 @@
+<resources>
+    <style name="Theme.Cosmo" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#65E6C4</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">#10151F</item>
+        <item name="android:navigationBarColor">#10151F</item>
+        <item name="android:windowBackground">#10151F</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+    <string name="app_name">COSMO</string>
+    <string name="navigation_opt_in">Sesli gezinme  ·  isteğe bağlı</string>
+    <string name="cancel_download">İndirmeyi iptal et</string>
+    <string name="downloading_model">Türkçe model indiriliyor…</string>
+    <string name="permission_status">Mikrofon: %1$s  •  Fener: %2$s\nGezinme: %3$s</string>
+    <string name="allowed">izinli</string>
+    <string name="not_allowed_yet">henüz izin verilmedi</string>
+    <string name="optional">isteğe bağlı</string>
+    <string name="enabled">etkin</string>
+    <string name="disabled">kapalı</string>
+    <string name="accessibility_description">Yalnızca sizin verdiğiniz geri, ana ekran, son uygulamalar, bildirim ve kaydırma komutlarını uygular. Bu izin isteğe bağlıdır. COSMO ekran metinlerini kaydetmez veya sunucuya göndermez. Ayarlar ve izin düğmelerine otomatik basmaz. COSMO içinden gezinme erişimini dilediğiniz an kapatabilirsiniz.</string>
+</resources>

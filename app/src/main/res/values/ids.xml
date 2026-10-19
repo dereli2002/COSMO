@@ -1,0 +1,8 @@
+<resources>
+    <item name="command_input" type="id" />
+    <item name="command_send" type="id" />
+    <item name="response_text" type="id" />
+    <item name="listening_status" type="id" />
+    <item name="start_listening" type="id" />
+    <item name="model_download" type="id" />
+</resources>
