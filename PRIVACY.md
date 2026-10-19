@@ -1,14 +1,17 @@
-# COSMO gizlilik bilgisi
+# FERİ gizlilik bilgisi
 
-COSMO'da hesap, reklam, analiz yazılımı veya sohbet sunucusu bulunmaz.
+FERİ 0.2.0'da hesap, reklam, analiz servisi veya sohbet sunucusu yoktur.
 
-- **Mikrofon:** Dinlemeyi uygulamadan başlattığında, görünür bir Android mikrofon bildirimiyle kullanılır. Ses, Vosk tarafından telefonda işlenir. Ses kaydı dosyası oluşturulmaz; ses sunucuya yüklenmez. Dinlemeyi uygulamadan, bildirimden veya komutla durdurabilirsin.
-- **Metin:** Komutun anlaşılması için çözümlenen metin kullanılır. Son çağrılan komut, son yanıt ve yerel notların uygulamanın özel verisinde tutulur. Bunlar internete aktarılmaz. Android yedeklemesi kapalıdır. Uygulama verisini Android ayarlarından temizlemek veya uygulamayı kaldırmak bu bilgileri ve indirilen modeli siler.
-- **Konuşma:** Yanıtlar için ağ bağlantısı gerektirmediğini bildiren Türkçe Android metin okuma sesi seçilir. Böyle bir ses yoksa yanıt ekranda gösterilir.
-- **Model hazırlama:** Dağıtılan 0.1.1 APK'sı Türkçe modeli içerir. Hazırlama düğmesi model dosyalarını telefonda doğrulayıp açar; bağlantı kurmaz. Modelin dahil edilmediği özel bir derlemede indirme onaylanırsa yalnızca resmî `https://alphacephei.com` adresi kullanılır. Bu HTTPS isteğinde sunucu IP adresi ve indirme zamanı gibi standart bağlantı bilgilerini görebilir; komut veya ses içermez.
-- **Fener:** Kamera izni yalnız LED feneri yönetmek içindir. Kamera görüntüsü alınmaz.
-- **Gezinme:** İsteğe bağlı erişilebilirlik hizmeti yalnız geri, ana ekran, son uygulamalar, bildirimler, hızlı ayarlar ve kaydırma komutlarını uygular. Ekran içeriği erişimi kapalıdır; ekran metni okunmaz/kaydedilmez. COSMO anahtarını kapatarak bu komutları durdurabilir, Android ayarlarından hizmeti kapatabilirsin.
-- **Dış uygulamalar:** Telefon, mesaj, tarayıcı, harita ve saat komutları ilgili Android ekranına aktarılır. Arama/SMS için gönderim kararını kullanıcı verir. Açılan uygulamanın kendi gizlilik kuralları geçerlidir. Web veya harita araması, arama metnini seçilen servise iletir.
-- **Kilit:** Notlar ve telefon denetimi kilit açılmasını gerektirir. Saat/tarih/pil gibi temel bilgiler okunabilir. COSMO sesle kimlik doğrulama yapmaz.
+- **Mikrofon:** Kullanıcı başlattığında görünür bildirimle kullanılır. FERİ seslenişi ve Türkçe komut çözümleme telefonda yapılır. Ses kaydı dosyası oluşturulmaz; ses yüklenmez. Uygulama/bildirim/komutla durdurulabilir.
+- **Modeller:** İki resmî Vosk modeli APK içindedir; ilk hazırlama SHA-256 doğrulayıp dosyaları telefonda açar. Modeli içermeyen özel derlemeler açık hazırlama isteğinde yalnız `https://alphacephei.com` üzerinden doğrulanmış modelleri indirebilir; ses/komut gönderilmez.
+- **Konuşma:** Ağ bağlantısı gerektirmediğini bildiren Türkçe Android metin okuma sesi seçilir. Uygun ses bulunmazsa yanıt ekranda gösterilir.
+- **Rehber:** İsteğe bağlı READ_CONTACTS izniyle, açık kişi komutunda tam adın yerel numarasını bulmak için okunur. Rehber kopyalanmaz, kaydedilmez veya paylaşılmaz. Belirsiz eşleşmede kendiliğinden kişi seçilmez.
+- **Telefon:** CALL_PHONE izni yalnız açık doğrudan numara komutu ve ayrı sesli onay sonrasında aramayı Android'e iletir. SMS okuma veya arka planda SMS gönderme izni istenmez.
+- **Ekran:** Gezinme ile ekran okuma ayrı onaylardır. Ekran okuma/denetimi ayrıca açıldığında yalnız komut üzerine etkin ekranın görünen, sıradan öğeleri incelenir. Sürekli ekran kaydı veya olay toplama yapılmaz. Okunan ekran metni son yanıt tercihlerine yazılmaz; yalnız o yanıt için bellekte tutulur. Şifre/PIN/OTP ve kart güvenlik alanları, Android izin ve güvenlik ekranları denetlenmez.
+- **Tıklama/yazma:** Açık hedef ve ayrı sesli onay gerekir. Onay anında ekranın aynı olması doğrulanır. Ekran kimliği kısa süreli hash olarak yalnız bellekte tutulur. Onay 30 saniyede veya başka komut/izin/ekran değişiminde geçersizleşir.
+- **Kamera:** Kamera izni fener içindir. Kamera komutları kamera uygulamasını açar; uygulama arka planda fotoğraf/video çekmez. Ekran görüntüsü komutu Android'in kendi ekran yakalama eylemini ister; güvenli ekran korumaları geçerlidir.
+- **Veri:** Notlar, son açık komut/yanıt ve izin tercihleri uygulamanın özel alanında saklanır. Android bulut yedeklemesi ve cihaz aktarımı kapalıdır. Uygulama verisini temizlemek veya kaldırmak bu bilgileri/modelleri siler. Üzerine imzalı güncelleme verileri korur.
+- **Kilit:** Kilitliyken saat/tarih/pil/yardım ve durdurma gibi sınırlı işlemler çalışır; rehber, ekran içeriği ve denetim kilit açılmasını ister. Ses, konuşmacı kimliğini doğrulamaz.
+- **Dış uygulamalar:** Harita/web arama metni, arama/mesaj/takvim taslağı veya kamera isteği seçilen Android uygulamasına aktarılır. O uygulamanın gizlilik kuralları geçerlidir.
 
-COSMO rehber okuma, doğrudan arama yapma, SMS gönderme/okuma, bildirim içeriklerini okuma veya tüm dosyalara erişim izni istemez.
+Erişilebilirlik ve ekran denetimini uygulamadaki anahtarlardan, Android izinlerini uygulama ayarlarından kapatabilirsin.

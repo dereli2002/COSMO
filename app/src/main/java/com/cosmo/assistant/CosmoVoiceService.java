@@ -16,6 +16,8 @@ import android.content.pm.ServiceInfo;
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
+import android.media.AudioManager;
+import android.media.ToneGenerator;
 import android.media.MediaRecorder;
 import android.os.Build;
 import android.os.Handler;
@@ -27,19 +29,18 @@ import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import android.speech.tts.Voice;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.vosk.Model;
 import org.vosk.Recognizer;
-import org.vosk.android.RecognitionListener;
 
 import java.io.IOException;
 import java.util.Locale;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /** User-started, visible microphone service. Recognition is entirely on the phone. */
-public final class CosmoVoiceService extends Service implements RecognitionListener {
+public final class CosmoVoiceService extends Service {
     public static final String ACTION_START = "com.cosmo.assistant.START_LISTENING";
     public static final String ACTION_STOP = "com.cosmo.assistant.STOP_LISTENING";
     public static final String ACTION_STATE_CHANGED = "com.cosmo.assistant.STATE_CHANGED";
@@ -54,7 +55,8 @@ public final class CosmoVoiceService extends Service implements RecognitionListe
     private static final String CHANNEL_ACTIONS = "cosmo_actions";
     private static final int NOTIFICATION_LISTENING = 1001;
     private static final int NOTIFICATION_ACTION = 1002;
-    private static final String WAITING = "Asistan çağrısını bekliyor.";
+    private static final String WAITING = "Feri çağrısını bekliyor.";
+    private static final long ACKNOWLEDGEMENT_MS = 200L;
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private final WakeWordGate gate = new WakeWordGate();
@@ -71,14 +73,23 @@ public final class CosmoVoiceService extends Service implements RecognitionListe
     private NotificationManager notificationManager;
     private PowerManager.WakeLock wakeLock;
     private Model model;
-    private Recognizer recognizer;
+    private Model wakeModel;
+    private Recognizer wakeRecognizer;
+    private Recognizer commandRecognizer;
+    private ToneGenerator acknowledgement;
     private LocalSpeechLoop speechService;
     private TextToSpeech tts;
 
     private final Runnable wakeTimeout = () -> {
-        if (!destroyed && listening && !speaking && !gate.isAwaitingCommand(SystemClock.elapsedRealtime())) {
-            updateStatus(WAITING);
-        }
+        if (!destroyed && listening && !speaking) returnToWake();
+    };
+    private final Runnable beginCommandAfterChime = () -> {
+        if (destroyed || !listening || speaking || speechService == null) return;
+        gate.armFeri(SystemClock.elapsedRealtime());
+        speechService.route(SpeechRouting.Stage.COMMAND);
+        updateStatus("Dinliyorum. Komutunu 10 saniye içinde söyle.");
+        main.removeCallbacks(wakeTimeout);
+        main.postDelayed(wakeTimeout, WakeWordGate.COMMAND_WINDOW_MS + 1L);
     };
     private final Runnable speechWatchdog = () -> {
         String timedOutUtterance = currentUtterance;
@@ -100,12 +111,12 @@ public final class CosmoVoiceService extends Service implements RecognitionListe
         preferences = getSharedPreferences(PREFS, MODE_PRIVATE);
         notificationManager = getSystemService(NotificationManager.class);
         NotificationChannel listeningChannel = new NotificationChannel(CHANNEL_LISTENING,
-                "COSMO sürekli dinleme", NotificationManager.IMPORTANCE_LOW);
+                "Feri sürekli dinleme", NotificationManager.IMPORTANCE_LOW);
         listeningChannel.setDescription("Mikrofon açıkken sürekli görünür. Durdur düğmesi dinlemeyi kapatır.");
         listeningChannel.setShowBadge(false);
         notificationManager.createNotificationChannel(listeningChannel);
         NotificationChannel actions = new NotificationChannel(CHANNEL_ACTIONS,
-                "COSMO işlem onayı", NotificationManager.IMPORTANCE_DEFAULT);
+                "Feri işlem onayı", NotificationManager.IMPORTANCE_DEFAULT);
         actions.setDescription("Uygulama veya sistem ekranı açmak için dokunman gereken işlemler.");
         notificationManager.createNotificationChannel(actions);
     }
@@ -113,7 +124,7 @@ public final class CosmoVoiceService extends Service implements RecognitionListe
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent == null || ACTION_STOP.equals(intent.getAction())) {
             listening = false;
-            if (speechService != null) speechService.setPause(true);
+            if (speechService != null) speechService.route(SpeechRouting.Stage.PAUSED);
             stopSelf();
             return START_NOT_STICKY;
         }
@@ -131,7 +142,7 @@ public final class CosmoVoiceService extends Service implements RecognitionListe
                 startForeground(NOTIFICATION_LISTENING, notification);
             }
             if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                fail("Dinleme başlamadı. COSMO'yu açıp mikrofon iznini ver.");
+                fail("Dinleme başlamadı. Feri'yi açıp mikrofon iznini ver.");
                 return START_NOT_STICKY;
             }
             if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_MICROPHONE)) {
@@ -139,7 +150,7 @@ public final class CosmoVoiceService extends Service implements RecognitionListe
                 return START_NOT_STICKY;
             }
             if (!VoiceModelManager.isReady(this)) {
-                fail("Önce COSMO ekranından Türkçe modeli hazırla.");
+                fail("Önce Feri ekranından ses modellerini hazırla.");
                 return START_NOT_STICKY;
             }
             PowerManager power = getSystemService(PowerManager.class);
@@ -148,25 +159,47 @@ public final class CosmoVoiceService extends Service implements RecognitionListe
             wakeLock.acquire(10 * 60_000L);
             main.postDelayed(renewWakeLock, 5 * 60_000L);
             preferences.edit().putBoolean(KEY_LISTENING, false).apply();
-            updateStatus("Türkçe dil modeli açılıyor…");
+            updateStatus("Çevrimdışı ses modelleri açılıyor…");
             initializeTts();
             loadModel();
         } catch (RuntimeException exception) {
-            fail("Android dinlemeyi başlatamadı. COSMO'yu açık ekrandan başlatıp mikrofon ve bildirim izinlerini kontrol et.");
+            fail("Android dinlemeyi başlatamadı. Feri'yi açık ekrandan başlatıp mikrofon ve bildirim izinlerini kontrol et.");
         }
         return START_NOT_STICKY;
     }
 
     private void loadModel() {
         new Thread(() -> {
+            Model loadedWakeModel = null;
+            Model loadedCommandModel = null;
+            Recognizer loadedWake = null;
+            Recognizer loadedCommand = null;
             try {
-                Model loaded = new Model(VoiceModelManager.modelDirectory(this).getAbsolutePath());
+                // The English model contains "ferry", the phonetic equivalent of the name Feri.
+                // The Turkish model handles commands. Native setup stays off the main thread;
+                // once started, only the single audio loop uses either recognizer.
+                loadedWakeModel = new Model(VoiceModelManager.wakeModelDirectory(this).getAbsolutePath());
+                loadedCommandModel = new Model(VoiceModelManager.modelDirectory(this).getAbsolutePath());
+                loadedWake = new Recognizer(loadedWakeModel, 16_000.0f, "[\"ferry\",\"perry\",\"[unk]\"]");
+                loadedWake.setWords(true);
+                loadedCommand = new Recognizer(loadedCommandModel, 16_000.0f);
+                Model readyWakeModel = loadedWakeModel;
+                Model readyCommandModel = loadedCommandModel;
+                Recognizer readyWake = loadedWake;
+                Recognizer readyCommand = loadedCommand;
                 main.post(() -> {
-                    if (destroyed) { loaded.close(); return; }
-                    model = loaded;
+                    if (destroyed) {
+                        closeNativeResources(readyWake, readyCommand, readyWakeModel, readyCommandModel);
+                        return;
+                    }
+                    wakeModel = readyWakeModel;
+                    model = readyCommandModel;
+                    wakeRecognizer = readyWake;
+                    commandRecognizer = readyCommand;
                     startRecognition();
                 });
             } catch (IOException | RuntimeException | LinkageError error) {
+                closeNativeResources(loadedWake, loadedCommand, loadedWakeModel, loadedCommandModel);
                 main.post(() -> {
                     if (!destroyed) fail("Dil modeli açılamadı. Depolama alanını ve cihaz uyumluluğunu kontrol et; modeli yeniden kurmayı deneyebilirsin.");
                 });
@@ -174,10 +207,16 @@ public final class CosmoVoiceService extends Service implements RecognitionListe
         }, "cosmo-model-loader").start();
     }
 
+    private static void closeNativeResources(Recognizer wake, Recognizer command, Model wakeModel, Model commandModel) {
+        if (wake != null) wake.close();
+        if (command != null) command.close();
+        if (wakeModel != null) wakeModel.close();
+        if (commandModel != null) commandModel.close();
+    }
+
     private void startRecognition() {
         try {
-            recognizer = new Recognizer(model, 16_000.0f);
-            speechService = new LocalSpeechLoop(recognizer, main);
+            speechService = new LocalSpeechLoop(wakeRecognizer, commandRecognizer, main);
             if (!speechService.startListening(this)) throw new IOException("Recorder did not start");
             starting = false;
             listening = true;
@@ -231,50 +270,72 @@ public final class CosmoVoiceService extends Service implements RecognitionListe
         }));
     }
 
-    @Override public void onPartialResult(String hypothesis) {
-        // Deliberately never execute partials: recognizers revise them and can emit duplicates.
-    }
-
-    @Override public void onResult(String hypothesis) { handleFinalTranscript(hypothesis); }
-
-    @Override public void onFinalResult(String hypothesis) { handleFinalTranscript(hypothesis); }
-
-    private void handleFinalTranscript(String hypothesis) {
+    private void handleFinalTranscript(SpeechRouting.Stage stage, String hypothesis) {
         if (destroyed || !listening || speaking) return;
+        JSONObject result;
         String transcript;
-        try { transcript = new JSONObject(hypothesis).optString("text", "").trim(); }
-        catch (JSONException exception) { return; }
+        try {
+            result = new JSONObject(hypothesis);
+            transcript = result.optString("text", "").trim();
+        } catch (JSONException exception) { return; }
         if (transcript.isEmpty()) return;
-        long now = SystemClock.elapsedRealtime();
-        String command = gate.accept(transcript, now);
-        if (command == null) {
-            if (gate.isAwaitingCommand(now)) {
-                preferences.edit().putString(KEY_LAST_HEARD, transcript).apply();
-                updateStatus("Dinliyorum. Komutunu 10 saniye içinde söyle.");
-                main.removeCallbacks(wakeTimeout);
-                main.postDelayed(wakeTimeout, WakeWordGate.COMMAND_WINDOW_MS + 1L);
+        if (stage == SpeechRouting.Stage.WAKE) {
+            JSONArray words = result.optJSONArray("result");
+            JSONObject word = words != null && words.length() == 1 ? words.optJSONObject(0) : null;
+            if (word == null || !"ferry".equals(word.optString("word"))
+                    || !WakeWordGate.isFeriWake(transcript, word.optDouble("conf", Double.NaN))) return;
+            // Stop routing audio before the acknowledgement so neither recognizer hears the tone.
+            gate.reset();
+            speechService.route(SpeechRouting.Stage.PAUSED);
+            preferences.edit().putString(KEY_LAST_HEARD, "Feri").apply();
+            updateStatus("Feri burada. Sinyalden sonra komutunu söyle.");
+            try {
+                if (acknowledgement == null) acknowledgement = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 55);
+                acknowledgement.startTone(ToneGenerator.TONE_PROP_ACK, 140);
+            } catch (RuntimeException ignored) {
+                // A muted/unavailable tone does not prevent the visible command window.
             }
+            main.removeCallbacks(beginCommandAfterChime);
+            main.postDelayed(beginCommandAfterChime, ACKNOWLEDGEMENT_MS);
+            return;
+        }
+        if (stage != SpeechRouting.Stage.COMMAND) return;
+        long now = SystemClock.elapsedRealtime();
+        String command = gate.acceptCommand(transcript, now);
+        if (command == null) {
+            if (!gate.isAwaitingCommand(now)) returnToWake();
             return;
         }
         main.removeCallbacks(wakeTimeout);
+        speechService.route(SpeechRouting.Stage.PAUSED);
         preferences.edit().putString(KEY_LAST_HEARD, transcript).apply();
         Command parsed = CommandParser.parse(command);
         if (parsed.type == Command.Type.CANCEL) notificationManager.cancel(NOTIFICATION_ACTION);
-        DeviceActions.Result result = new DeviceActions(this).execute(parsed);
-        String reply = result.speech;
-        if (result.intent != null) {
-            if (postActionNotification(result.intent)) {
-                reply += " Devam etmek için COSMO işlem bildirimine dokun.";
+        DeviceActions.Result resultAction = new DeviceActions(this).execute(parsed);
+        String reply = resultAction.speech;
+        if (resultAction.intent != null && !CosmoAccessibilityService.openExternalActivity(this, resultAction.intent)) {
+            if (postActionNotification(resultAction.intent)) {
+                reply += " Devam etmek için Feri işlem bildirimine dokun.";
             } else {
-                reply += " İşlem bildirimi açılamadı. COSMO ekranındaki yazılı komut alanından tekrar deneyebilirsin.";
+                reply += " İşlem bildirimi açılamadı. Feri ekranındaki yazılı komut alanından tekrar deneyebilirsin.";
             }
         }
-        if (parsed.type == Command.Type.NOTE_LIST && phoneLocked()) {
-            reply = "Notlarını okumak için önce telefonun kilidini açmalısın.";
+        if ((parsed.type == Command.Type.NOTE_LIST || parsed.type == Command.Type.SCREEN_READ) && phoneLocked()) {
+            reply = "Bu bilgiyi okumak için önce telefonun kilidini açmalısın.";
         }
-        preferences.edit().putString(KEY_LAST_REPLY, reply).apply();
+        // Screen content is ephemeral: only the generic result enters saved UI state.
+        preferences.edit().putString(KEY_LAST_REPLY, parsed.type == Command.Type.SCREEN_READ
+                ? "Ekran okuma komutu işlendi." : reply).apply();
         broadcastState();
-        speak(reply, result.stopListening);
+        speak(reply, resultAction.stopListening);
+    }
+
+    private void returnToWake() {
+        gate.reset();
+        main.removeCallbacks(wakeTimeout);
+        main.removeCallbacks(beginCommandAfterChime);
+        if (speechService != null) speechService.route(SpeechRouting.Stage.WAKE);
+        updateStatus(WAITING);
     }
 
     private boolean phoneLocked() {
@@ -292,7 +353,7 @@ public final class CosmoVoiceService extends Service implements RecognitionListe
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
             Notification notification = new Notification.Builder(this, CHANNEL_ACTIONS)
                     .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-                    .setContentTitle("COSMO işlemi hazır")
+                    .setContentTitle("Feri işlemi hazır")
                     .setContentText("Devam etmek için dokun")
                     .setStyle(new Notification.BigTextStyle().bigText("İstenen uygulama veya sistem ekranını açmak için dokun."))
                     .setContentIntent(action).setAutoCancel(true)
@@ -309,15 +370,15 @@ public final class CosmoVoiceService extends Service implements RecognitionListe
             if (stopWhenDone) {
                 listening = false;
                 stopSelf();
-            } else updateStatus(WAITING);
+            } else returnToWake();
             return;
         }
         speaking = true;
         stopAfterSpeech = stopWhenDone;
-        if (speechService != null) {
-            speechService.setPause(true);
-            speechService.reset();
-        }
+        gate.reset();
+        main.removeCallbacks(wakeTimeout);
+        main.removeCallbacks(beginCommandAfterChime);
+        if (speechService != null) speechService.route(SpeechRouting.Stage.PAUSED);
         currentUtterance = "cosmo-" + (++utteranceNumber);
         updateStatus("Yanıt veriyor…");
         String text = reply.length() > TextToSpeech.getMaxSpeechInputLength()
@@ -343,19 +404,11 @@ public final class CosmoVoiceService extends Service implements RecognitionListe
             stopSelf();
             return;
         }
-        if (speechService != null) {
-            speechService.reset();
-            speechService.setPause(false);
-        }
-        updateStatus(WAITING);
+        returnToWake();
     }
 
-    @Override public void onError(Exception exception) {
-        if (!destroyed) fail("Mikrofon dinlemesi kesildi. Mikrofonu kullanan uygulamaları kapatıp COSMO'dan yeniden başlat.");
-    }
-
-    @Override public void onTimeout() {
-        if (!destroyed) fail("Dinleme sona erdi. COSMO ekranından yeniden başlatabilirsin.");
+    private void onError(Exception exception) {
+        if (!destroyed) fail("Mikrofon dinlemesi kesildi. Mikrofonu kullanan uygulamaları kapatıp Feri'den yeniden başlat.");
     }
 
     private Notification listeningNotification(String status) {
@@ -367,7 +420,7 @@ public final class CosmoVoiceService extends Service implements RecognitionListe
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this, CHANNEL_LISTENING)
                 .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-                .setContentTitle("COSMO • mikrofon açık")
+                .setContentTitle("Feri • mikrofon açık")
                 .setContentText(status).setContentIntent(openApp)
                 .setOngoing(true).setOnlyAlertOnce(true)
                 .setCategory(Notification.CATEGORY_SERVICE)
@@ -391,7 +444,7 @@ public final class CosmoVoiceService extends Service implements RecognitionListe
         if (destroyed) return;
         failed = true;
         listening = false;
-        if (speechService != null) speechService.setPause(true);
+        if (speechService != null) speechService.route(SpeechRouting.Stage.PAUSED);
         preferences.edit().putString(KEY_STATUS, explanation).putBoolean(KEY_LISTENING, false).apply();
         broadcastState();
         stopSelf();
@@ -403,6 +456,7 @@ public final class CosmoVoiceService extends Service implements RecognitionListe
         listening = false;
         gate.reset();
         main.removeCallbacks(wakeTimeout);
+        main.removeCallbacks(beginCommandAfterChime);
         main.removeCallbacks(speechWatchdog);
         main.removeCallbacks(renewWakeLock);
         notificationManager.cancel(NOTIFICATION_ACTION);
@@ -411,12 +465,15 @@ public final class CosmoVoiceService extends Service implements RecognitionListe
             tts.shutdown();
             tts = null;
         }
-        Recognizer retiringRecognizer = recognizer;
+        if (acknowledgement != null) {
+            acknowledgement.release();
+            acknowledgement = null;
+        }
+        Recognizer retiringWake = wakeRecognizer;
+        Recognizer retiringCommand = commandRecognizer;
         Model retiringModel = model;
-        Runnable closeNativeResources = () -> {
-            if (retiringRecognizer != null) retiringRecognizer.close();
-            if (retiringModel != null) retiringModel.close();
-        };
+        Model retiringWakeModel = wakeModel;
+        Runnable closeNativeResources = () -> closeNativeResources(retiringWake, retiringCommand, retiringWakeModel, retiringModel);
         if (speechService != null) {
             // Never close native objects while an AudioRecord/recognizer call is still using them.
             speechService.shutdown(closeNativeResources);
@@ -424,8 +481,10 @@ public final class CosmoVoiceService extends Service implements RecognitionListe
         } else {
             closeNativeResources.run();
         }
-        recognizer = null;
+        wakeRecognizer = null;
+        commandRecognizer = null;
         model = null;
+        wakeModel = null;
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
         SharedPreferences.Editor edit = preferences.edit().putBoolean(KEY_LISTENING, false);
         if (!failed) edit.putString(KEY_STATUS, "Dinleme durduruldu.");
@@ -440,24 +499,24 @@ public final class CosmoVoiceService extends Service implements RecognitionListe
     /**
      * A bounded PCM loop around Vosk. Unlike the library's convenience recorder, microphone
      * failures are delivered to the service and cannot escape as uncaught audio-thread exceptions.
-     * Only this thread touches the recognizer; shutdown joins it before closing native resources.
+     * Only this thread decodes or resets the recognizers; shutdown joins it before closing native resources.
      */
     private static final class LocalSpeechLoop {
         private static final int SAMPLE_RATE = 16_000;
-        private static final int FRAME_SAMPLES = 3_200;
-        private final Recognizer recognizer;
+        private static final int FRAME_SAMPLES = 320;
+        private final Recognizer wakeRecognizer;
+        private final Recognizer commandRecognizer;
         private final AudioRecord recorder;
         private final Handler main;
-        private final AtomicBoolean resetRequested = new AtomicBoolean();
         private volatile boolean active;
-        private volatile boolean paused;
-        private volatile long generation;
+        private final SpeechRouting routing = new SpeechRouting();
         private Thread audioThread;
 
         @SuppressLint("MissingPermission") // The service verifies RECORD_AUDIO before constructing this loop.
         @SuppressWarnings("deprecation")
-        LocalSpeechLoop(Recognizer recognizer, Handler main) throws IOException {
-            this.recognizer = recognizer;
+        LocalSpeechLoop(Recognizer wakeRecognizer, Recognizer commandRecognizer, Handler main) throws IOException {
+            this.wakeRecognizer = wakeRecognizer;
+            this.commandRecognizer = commandRecognizer;
             this.main = main;
             int minimum = AudioRecord.getMinBufferSize(SAMPLE_RATE,
                     AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
@@ -471,7 +530,7 @@ public final class CosmoVoiceService extends Service implements RecognitionListe
             }
         }
 
-        boolean startListening(RecognitionListener listener) {
+        boolean startListening(CosmoVoiceService listener) {
             if (audioThread != null) return false;
             active = true;
             audioThread = new Thread(() -> {
@@ -482,20 +541,31 @@ public final class CosmoVoiceService extends Service implements RecognitionListe
                         throw new IllegalStateException("Microphone recording did not start");
                     }
                     short[] frame = new short[FRAME_SAMPLES];
+                    SpeechRouting.Snapshot applied = null;
                     while (active && !Thread.currentThread().isInterrupted()) {
-                        long readGeneration = generation;
+                        SpeechRouting.Snapshot readRoute = routing.snapshot();
                         int count = recorder.read(frame, 0, frame.length, AudioRecord.READ_BLOCKING);
                         if (!active) break;
                         if (count < 0) throw new IllegalStateException("Microphone read failed: " + count);
-                        if (count == 0 || paused || readGeneration != generation) continue;
-                        if (resetRequested.getAndSet(false)) recognizer.reset();
+                        if (count == 0 || !routing.isCurrent(readRoute)) continue;
+                        if (applied != readRoute) {
+                            // No main-thread reset can race an in-flight native decoder call.
+                            wakeRecognizer.reset();
+                            commandRecognizer.reset();
+                            applied = readRoute;
+                        }
+                        if (readRoute.stage == SpeechRouting.Stage.PAUSED) continue;
+                        Recognizer recognizer = readRoute.stage == SpeechRouting.Stage.WAKE
+                                ? wakeRecognizer : commandRecognizer;
                         if (recognizer.acceptWaveForm(frame, count)) {
                             String result = recognizer.getResult();
                             main.post(() -> {
-                                if (active && !paused && generation == readGeneration) listener.onResult(result);
+                                if (active && routing.isCurrent(readRoute)) {
+                                    listener.handleFinalTranscript(readRoute.stage, result);
+                                }
                             });
                         }
-                        // Partial results cannot execute or leak a command across a TTS pause.
+                        // Partial results never authorize a wake or execute a command.
                     }
                 } catch (RuntimeException | LinkageError error) {
                     if (active) {
@@ -511,25 +581,13 @@ public final class CosmoVoiceService extends Service implements RecognitionListe
             return true;
         }
 
-        void setPause(boolean value) {
-            if (value) {
-                paused = true;
-                generation++;
-            } else {
-                resetRequested.set(true);
-                generation++;
-                paused = false;
-            }
-        }
-
-        void reset() {
-            resetRequested.set(true);
-            generation++;
+        void route(SpeechRouting.Stage stage) {
+            routing.transition(stage);
         }
 
         void shutdown(Runnable afterThreadStops) {
             active = false;
-            generation++;
+            route(SpeechRouting.Stage.PAUSED);
             Thread thread = audioThread;
             if (thread != null) thread.interrupt();
             // stop() wakes a blocking read; the join happens away from Android's main thread.

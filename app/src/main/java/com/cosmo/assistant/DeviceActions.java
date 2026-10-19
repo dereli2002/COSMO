@@ -61,10 +61,13 @@ public final class DeviceActions {
 
     public Result execute(Command command) {
         if (command == null) return Result.say("Komutu anlayamadım. Yardım diyebilirsin.");
+        PhoneFeatures.clearPendingFor(command);
         try {
             if (requiresUnlockedPhone(command.type) && isPhoneLocked()) {
                 return Result.say("Bu işlem için önce telefonun kilidini açmalısın.");
             }
+            Result expanded = new PhoneFeatures(context).execute(command);
+            if (expanded != null) return expanded;
             switch (command.type) {
                 case TIME:
                     return Result.say("Saat " + new SimpleDateFormat("HH:mm", TURKISH).format(new Date()));
@@ -122,11 +125,11 @@ public final class DeviceActions {
                 case ACCESSIBILITY_SCROLL_UP: return scroll(false);
                 case ACCESSIBILITY_SCROLL_DOWN: return scroll(true);
                 case STOP_LISTENING:
-                    return new Result("Dinlemeyi durdurdum. Yeniden başlatmak için COSMO'yu açabilirsin.", null, true);
+                    return new Result("Dinlemeyi durdurdum. Yeniden başlatmak için Feri'yi açabilirsin.", null, true);
                 case HELP:
                     return Result.say("Saat kaç, pil durumu, feneri aç, sesi artır, not al, notlarımı oku, "
                             + "YouTube aç, Wi-Fi ayarları, Ankara haritada ara veya dinlemeyi durdur diyebilirsin. "
-                            + "Geri ve ana ekran komutları için isteğe bağlı erişilebilirliği açmalısın.");
+                            + "Ekranı oku, ekranda Kaydet düğmesine bas, parlaklığı yüzde elli yap, Ahmet kişisini ara, kamerayı aç diyebilirsin. Gezinme ve ekran denetimi için isteğe bağlı izinleri açmalısın. Doğrudan arama, tıklama ve yazma sesli onay ister.");
                 case CANCEL: return Result.say("İşlemi iptal ettim.");
                 case CONFIRM: return Result.say("Onay bekleyen bir işlem yok.");
                 case UNKNOWN:
@@ -134,7 +137,7 @@ public final class DeviceActions {
                     return Result.say("Bu komutu henüz desteklemiyorum. Yardım diyerek örnekleri duyabilirsin.");
             }
         } catch (SecurityException exception) {
-            return Result.say("Android bu işlem için izin vermedi. COSMO'nun uygulama izinlerini kontrol edebilirsin.");
+            return Result.say("Android bu işlem için izin vermedi. FERİ'nin uygulama izinlerini kontrol edebilirsin.");
         } catch (IllegalArgumentException exception) {
             return Result.say("Bu işlem için verilen bilgi geçersiz. Komutu yeniden söyleyebilir misin?");
         } catch (RuntimeException exception) {
@@ -153,6 +156,8 @@ public final class DeviceActions {
             case DATE:
             case BATTERY:
             case HELP:
+            case GREETING:
+            case SELF_STATUS:
             case STOP_LISTENING:
             case CANCEL:
             case CONFIRM:
@@ -178,7 +183,7 @@ public final class DeviceActions {
 
     private Result flashlight(boolean enabled) {
         if (context.checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            return Result.say("Fener için kamera izni gerekiyor. COSMO'yu açıp kamera iznini verebilirsin.");
+            return Result.say("Fener için kamera izni gerekiyor. FERİ'yi açıp kamera iznini verebilirsin.");
         }
         CameraManager camera = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
         if (camera == null) return Result.say("Bu telefonda fener bulunamadı.");
@@ -206,7 +211,7 @@ public final class DeviceActions {
         // Only media volume is changed. Ringer / Do Not Disturb settings are never modified.
         manager.adjustStreamVolume(AudioManager.STREAM_MUSIC, adjustment, 0);
         if (adjustment == AudioManager.ADJUST_MUTE) {
-            return Result.say("Medya sesini kıstım. COSMO'nun sesi de duyulmayabilir; sesi artır diyebilirsin.");
+            return Result.say("Medya sesini kıstım. FERİ'nin sesi de duyulmayabilir; sesi artır diyebilirsin.");
         }
         if (adjustment == AudioManager.ADJUST_RAISE && manager.isStreamMute(AudioManager.STREAM_MUSIC)) {
             manager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_UNMUTE, 0);
@@ -231,7 +236,7 @@ public final class DeviceActions {
         return Result.open("Alarmı saat uygulamasında kontrol edebilirsin.", new Intent(AlarmClock.ACTION_SET_ALARM)
                 .putExtra(AlarmClock.EXTRA_HOUR, hour)
                 .putExtra(AlarmClock.EXTRA_MINUTES, minute)
-                .putExtra(AlarmClock.EXTRA_MESSAGE, "COSMO")
+                .putExtra(AlarmClock.EXTRA_MESSAGE, "FERİ")
                 .putExtra(AlarmClock.EXTRA_SKIP_UI, false));
     }
 
@@ -242,7 +247,7 @@ public final class DeviceActions {
         if (seconds <= 0 || seconds > 86400) return Result.say("Zamanlayıcı süresi bir saniye ile 24 saat arasında olmalı.");
         return Result.open("Zamanlayıcıyı saat uygulamasında kontrol edebilirsin.", new Intent(AlarmClock.ACTION_SET_TIMER)
                 .putExtra(AlarmClock.EXTRA_LENGTH, seconds)
-                .putExtra(AlarmClock.EXTRA_MESSAGE, "COSMO")
+                .putExtra(AlarmClock.EXTRA_MESSAGE, "FERİ")
                 .putExtra(AlarmClock.EXTRA_SKIP_UI, false));
     }
 
@@ -284,6 +289,10 @@ public final class DeviceActions {
     private Result openApp(String requested) {
         String query = normalize(requested);
         if (query.isEmpty()) return Result.say("Açmamı istediğin uygulamanın adını söylemelisin.");
+        if (query.equals("kendini") || query.equals("kendi ekranini") || query.equals("feri") || query.equals("feri'yi")) {
+            return Result.open("Buradayım. Feri ekranını açıyorum.", new Intent(context, MainActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP));
+        }
         if (query.equals("ayarlar")) return Result.open("Telefon ayarlarını açabilirsin.", new Intent(Settings.ACTION_SETTINGS));
         PackageManager manager = context.getPackageManager();
         Intent launcher = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
@@ -356,6 +365,6 @@ public final class DeviceActions {
     }
 
     private Result accessibilityUnavailable() {
-        return Result.say("Bu komut için COSMO'da gezinme iznini ve Android erişilebilirlik hizmetini kendin açmalısın.");
+        return Result.say("Bu komut için FERİ'de gezinme iznini ve Android erişilebilirlik hizmetini kendin açmalısın.");
     }
 }

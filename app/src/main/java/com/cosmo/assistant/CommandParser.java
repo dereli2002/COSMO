@@ -22,8 +22,13 @@ public final class CommandParser {
 
         if (matches(words, "iptal", "vazgec", "iptal et", "hayir")) return command(Command.Type.CANCEL);
         if (matches(words, "onayla", "onayliyorum", "evet onayla")) return command(Command.Type.CONFIRM);
-        if (matches(words, "dinlemeyi durdur", "dinlemeyi kapat", "cosmoyu durdur", "cosmo'yu durdur", "asistani kapat", "kapan")) return command(Command.Type.STOP_LISTENING);
+        if (matches(words, "dinlemeyi durdur", "dinlemeyi kapat", "cosmoyu durdur", "cosmo'yu durdur", "cosmayi durdur", "cosma'yi durdur", "asistani kapat", "kapan")) return command(Command.Type.STOP_LISTENING);
         if (matches(words, "yardim", "yardim et", "neler yapabilirsin", "komutlar", "komutlari soyle")) return command(Command.Type.HELP);
+        if (matches(words, "durumun ne", "durumunu soyle", "dinliyor musun", "hazir misin")) return command(Command.Type.SELF_STATUS);
+        if (matches(words, "merhaba", "selam", "gunaydin", "iyi aksamlar")) return new Command(Command.Type.GREETING, "hello");
+        if (matches(words, "nasilsin", "iyi misin")) return new Command(Command.Type.GREETING, "how_are_you");
+        if (matches(words, "tesekkur ederim", "tesekkurler", "sag ol")) return new Command(Command.Type.GREETING, "thanks");
+        if (matches(words, "adin ne", "sen kimsin", "ismin ne")) return new Command(Command.Type.GREETING, "name");
         if (matches(words, "saat", "saat kac", "su an saat kac", "saati soyle", "saat kactir")) return command(Command.Type.TIME);
         if (matches(words, "tarih", "tarih ne", "bugunun tarihi", "bugunun tarihi ne", "bugun tarih ne", "tarihi soyle", "bugun ayin kaci", "ayin kaci", "bugun gunlerden ne", "hangi gundeyiz")) return command(Command.Type.DATE);
         if (matches(words, "pil", "pil durumu", "pil kac", "sarj", "sarj kac", "sarjim ne kadar", "sarj ne kadar", "sarj durumu", "batarya durumu")) return command(Command.Type.BATTERY);
@@ -32,15 +37,37 @@ public final class CommandParser {
         if (matches(words, "sesi artir", "sesi yukselt", "ses ac", "sesi ac")) return command(Command.Type.VOLUME_UP);
         if (matches(words, "sesi azalt", "sesi kis", "ses kis")) return command(Command.Type.VOLUME_DOWN);
         if (matches(words, "sessize al", "sesi kapat", "sesi sustur")) return command(Command.Type.VOLUME_MUTE);
+        if (matches(words, "parlakligi artir", "parlakligi yukselt", "ekran parlakligini artir", "ekran parlakligini yukselt")) return command(Command.Type.BRIGHTNESS_UP);
+        if (matches(words, "parlakligi azalt", "parlakligi kis", "ekran parlakligini azalt", "ekran parlakligini kis")) return command(Command.Type.BRIGHTNESS_DOWN);
+        if (matches(words, "otomatik dondurmeyi ac", "ekrani otomatik dondur", "ekran dondurmeyi ac")) return command(Command.Type.ROTATION_AUTO);
+        if (matches(words, "otomatik dondurmeyi kapat", "ekran dondurmeyi kapat", "ekrani dikey kilitle", "dikey ekrana gec")) return command(Command.Type.ROTATION_PORTRAIT);
+        if (matches(words, "ekran goruntusu al", "ekran resmi cek", "ekranin resmini cek")) return command(Command.Type.SCREENSHOT);
+        if (matches(words, "ekrani kilitle", "telefonu kilitle")) return command(Command.Type.SCREEN_LOCK);
+        if (matches(words, "fotograf cek", "kamera ile fotograf cek", "fotograf kamerasini ac")) return command(Command.Type.CAMERA_PHOTO);
+        if (matches(words, "video cek", "video kaydet", "video kamerasini ac")) return command(Command.Type.CAMERA_VIDEO);
+        if (matches(words, "ekrani oku", "ekranda ne var", "ekrandaki yazilari oku")) return command(Command.Type.SCREEN_READ);
+        if (matches(words, "telefonu kapat", "cihazi kapat")) return command(Command.Type.POWER_OFF);
+        if (matches(words, "telefonu yeniden baslat", "cihazi yeniden baslat")) return command(Command.Type.REBOOT);
         if (words.matches("(?:wi-?fi|wi fi|kablosuz ag)(?:'?(?:yi|i))? (?:ayarlari|ayarlarini ac|ac|kapat)") || matches(words, "wifi", "wi-fi", "wi fi")) return command(Command.Type.WIFI_SETTINGS);
         if (words.matches("bluetooth(?:u|'u)? (?:ayarlari|ayarlarini ac|ac|kapat)") || words.equals("bluetooth")) return command(Command.Type.BLUETOOTH_SETTINGS);
         if (words.matches("(?:internet|mobil veri)(?:i|yi)? (?:ayarlari|ayarlarini ac|ac|kapat)") || matches(words, "internet ayarlari", "ag ayarlarini ac")) return command(Command.Type.INTERNET_SETTINGS);
         if (words.matches("(?:konum|gps)(?:u|'i)? (?:ayarlari|ayarlarini ac|ac|kapat)") || words.equals("konum")) return command(Command.Type.LOCATION_SETTINGS);
+        if (matches(words, "uygulama ayarlari", "uygulama ayarlarini ac", "cosma ayarlarini ac", "cosmo ayarlarini ac")) return command(Command.Type.APP_SETTINGS);
+        if (matches(words, "ekran ayarlari", "ekran ayarlarini ac")) return command(Command.Type.DISPLAY_SETTINGS);
+        if (matches(words, "ses ayarlari", "ses ayarlarini ac")) return command(Command.Type.SOUND_SETTINGS);
+        if (matches(words, "erisilebilirlik ayarlari", "erisilebilirlik ayarlarini ac")) return command(Command.Type.ACCESSIBILITY_SETTINGS);
+        if (matches(words, "pil ayarlari", "pil ayarlarini ac", "batarya ayarlarini ac", "pil tasarrufu ayarlarini ac")) return command(Command.Type.BATTERY_SETTINGS);
+        if (words.matches("ucak mod(?:u|unu) (?:ac|kapat|ayarlari|ayarlarini ac)")) return command(Command.Type.AIRPLANE_SETTINGS);
+        if (words.matches("(?:erisim noktasi|kisisel erisim noktasi|hotspot)(?:ni)? (?:ac|kapat|ayarlari|ayarlarini ac)")) return command(Command.Type.HOTSPOT_SETTINGS);
+        if (words.matches("nfc(?:'?(?:yi|i))? (?:ac|kapat|ayarlari|ayarlarini ac)")) return command(Command.Type.NFC_SETTINGS);
+        if (matches(words, "gizlilik ayarlari", "gizlilik ayarlarini ac")) return command(Command.Type.PRIVACY_SETTINGS);
+        if (matches(words, "depolama ayarlari", "depolama ayarlarini ac", "hafiza ayarlarini ac")) return command(Command.Type.STORAGE_SETTINGS);
         if (matches(words, "notlari oku", "notlarimi oku", "notlari listele", "notlarim", "notlari goster")) return command(Command.Type.NOTE_LIST);
         if (matches(words, "muzigi baslat", "muzigi oynat", "medyayi oynat")) return command(Command.Type.MEDIA_PLAY);
         if (matches(words, "muzigi durdur", "muzigi duraklat", "medyayi duraklat", "medyayi durdur")) return command(Command.Type.MEDIA_PAUSE);
         if (matches(words, "oynat duraklat", "oynat veya duraklat")) return command(Command.Type.MEDIA_PLAY_PAUSE);
         if (matches(words, "sonraki sarki", "siradaki sarki", "sonraki parca", "sonraki medya")) return command(Command.Type.MEDIA_NEXT);
+        if (matches(words, "onceki sarki", "onceki parca", "onceki medya", "bir onceki sarki")) return command(Command.Type.MEDIA_PREVIOUS);
         if (matches(words, "geri", "geri git", "geri don")) return command(Command.Type.ACCESSIBILITY_BACK);
         if (matches(words, "ana ekran", "ana ekrana git", "ana ekrani ac")) return command(Command.Type.ACCESSIBILITY_HOME);
         if (matches(words, "son uygulamalar", "son uygulamalari ac", "uygulama degistir")) return command(Command.Type.ACCESSIBILITY_RECENTS);
@@ -52,7 +79,19 @@ public final class CommandParser {
         // Capture original payloads so Turkish casing, punctuation and SMS/note text survive.
         Command parsed = payload(text, "^(?:not al|not kaydet|not yaz|not et)\\s*:?\\s+(.+)$", Command.Type.NOTE_SAVE);
         if (parsed != null) return parsed;
+        parsed = parseBrightness(words);
+        if (parsed != null) return parsed;
+        parsed = payload(text, "^(?:takvime ekle|takvim etkinligi olustur|takvim etkinligi ekle)\\s*:?\\s+(.+)$", Command.Type.CALENDAR_INSERT);
+        if (parsed != null) return parsed;
+        parsed = payload(text, "^(?:ekrana yaz|metin yaz|yazi yaz)\\s*:?\\s+(.+)$", Command.Type.SCREEN_TYPE);
+        if (parsed != null) return parsed;
+        parsed = payload(text, "^ekranda(?:ki)?\\s+(.+?)\\s+(?:dugmesine bas|dugmesine tikla|ogesine tikla|yazisina tikla)$", Command.Type.SCREEN_CLICK);
+        if (parsed != null) return parsed;
+        parsed = payload(text, "^ekranda\\s+(.+?)\\s+tikla$", Command.Type.SCREEN_CLICK);
+        if (parsed != null) return parsed;
         parsed = parseSms(text);
+        if (parsed != null) return parsed;
+        parsed = parseContact(text);
         if (parsed != null) return parsed;
         parsed = parseDial(text);
         if (parsed != null) return parsed;
@@ -61,6 +100,8 @@ public final class CommandParser {
         parsed = parseTimer(words);
         if (parsed != null) return parsed;
         parsed = payload(text, "^(?:haritada ara|haritada bul|haritalarda ara|yol tarifi|yol tarifi al)\\s+(.+)$", Command.Type.MAP_SEARCH);
+        if (parsed != null) return parsed;
+        parsed = payload(text, "^(?:haritada|haritalarda)\\s+(.+?)\\s+ara$", Command.Type.MAP_SEARCH);
         if (parsed != null) return parsed;
         parsed = payload(text, "^(.+?)\\s+(?:haritada ara|haritada bul|icin yol tarifi)$", Command.Type.MAP_SEARCH);
         if (parsed != null) return parsed;
@@ -82,8 +123,54 @@ public final class CommandParser {
         return value == null ? "" : new Text(value).normalized;
     }
 
+    private static Command parseBrightness(String words) {
+        Matcher match = Pattern.compile("^(?:ekran )?parlakli(?:gi|gini) (?:yuzde |%\\s*)?(.+?) (?:yap|ayarla|getir)$").matcher(words);
+        if (!match.matches()) return null;
+        int percent = number(match.group(1));
+        return percent < 0 || percent > 100 ? command(Command.Type.UNKNOWN)
+                : new Command(Command.Type.BRIGHTNESS_SET, Integer.toString(percent));
+    }
+
+    private static Command parseContact(Text text) {
+        Matcher match = Pattern.compile("^(.+?) (?:adli |isimli )?kisi(?:ye|sine) (?:sms|mesaj) (?:yaz|hazirla|gonder)\\s*:?\\s+(.+)$").matcher(text.normalized);
+        if (match.matches() && contactLabel(match.group(1))) {
+            return new Command(Command.Type.COMPOSE_SMS_CONTACT,
+                    text.originalGroup(match, 1).trim(), text.originalGroup(match, 2).trim());
+        }
+        match = Pattern.compile("^(.+?) (?:adli |isimli )?kisi(?:yi|sini) (?:ara|telefon et)[.!?]*$").matcher(text.normalized);
+        if (match.matches() && contactLabel(match.group(1))) {
+            return new Command(Command.Type.DIAL_CONTACT, text.originalGroup(match, 1).trim());
+        }
+        match = Pattern.compile("^(?:rehberde )?(.+?) (?:adli |isimli )?kisi(?:yi|sini) (?:goster|bul)[.!?]*$").matcher(text.normalized);
+        if (match.matches() && contactLabel(match.group(1))) {
+            return new Command(Command.Type.CONTACT_SHOW, text.originalGroup(match, 1).trim());
+        }
+        match = Pattern.compile("^(?:kisiyi goster|rehberde bul) (.+?)[.!?]*$").matcher(text.normalized);
+        if (match.matches() && contactLabel(match.group(1))) {
+            return new Command(Command.Type.CONTACT_SHOW, text.originalGroup(match, 1).trim());
+        }
+        // A few common relationship labels are explicit; arbitrary searches never become calls.
+        match = Pattern.compile("^(annemi|babami|esimi|kardesimi) ara[.!?]*$").matcher(text.normalized);
+        if (match.matches()) {
+            String label = match.group(1);
+            return new Command(Command.Type.DIAL_CONTACT, label.substring(0, label.length() - 1));
+        }
+        return null;
+    }
+
+    private static boolean contactLabel(String label) {
+        // Respect the established web/map command prefix even if its query mentions a person.
+        return !label.matches("^(?:internette|webde|google'?da|haritada|haritalarda|yol tarifi|web aramasi yap)(?: .*)?$");
+    }
+
     private static Command parseDial(Text text) {
         String words = text.normalized.replaceAll("[.!?]+$", "").trim();
+        Matcher direct = Pattern.compile("^(.+?) numarasini (?:telefonla|dogrudan) ara$").matcher(words);
+        if (direct.matches()) {
+            Command dial = parseDial(new Text(direct.group(1) + " numarasini ara"));
+            return dial == null || dial.type != Command.Type.DIAL ? command(Command.Type.UNKNOWN)
+                    : new Command(Command.Type.CALL, dial.argument);
+        }
         // Separate anchored patterns avoid treating words containing 'ara' as calls.
         Matcher match = Pattern.compile("^(?:ara|telefon et|numarayi ara|numarayi cevir)\\s+" + PHONE + "$").matcher(words);
         if (!match.matches()) {

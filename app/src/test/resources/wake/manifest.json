@@ -1,0 +1,205 @@
+{
+  "description": "Artificial Turkish speech for the offline FERİ wake recognizer; no human recordings.",
+  "generator": "eSpeak NG 1.52.0.1 embedded in piper-tts 1.8.0; generated at 22050 Hz then resampled to 16000 Hz mono signed 16-bit PCM.",
+  "grammar": [
+    "ferry",
+    "perry",
+    "[unk]"
+  ],
+  "minimum_confidence": 0.65,
+  "minimum_wake_hits": 8,
+  "cases": [
+    {
+      "file": "base-150-feri.wav",
+      "text": "feri",
+      "voice": "tr",
+      "words_per_minute": 150,
+      "group": "wake",
+      "sha256": "79c8b05383c4b72cb14623cefa5659b648b9fa2c28a9cd5ab196d9d8551a6250"
+    },
+    {
+      "file": "base-175-feri.wav",
+      "text": "feri",
+      "voice": "tr",
+      "words_per_minute": 175,
+      "group": "wake",
+      "sha256": "ecea0636baefdabd5cbe88308f970af60f28c805eb56b6e310f48da3e580e565"
+    },
+    {
+      "file": "base-210-feri.wav",
+      "text": "feri",
+      "voice": "tr",
+      "words_per_minute": 210,
+      "group": "wake",
+      "sha256": "a4e99af1697526593a8742b1b7a822eb8336626f6699e815b6e2074e0ef1c728"
+    },
+    {
+      "file": "base-175-merhaba.wav",
+      "text": "merhaba",
+      "voice": "tr",
+      "words_per_minute": 175,
+      "group": "ordinary",
+      "sha256": "4e45784c7477d53c8fc93cae6a17f65f366503b96eebd8fc065fdfd60a0419d9"
+    },
+    {
+      "file": "base-175-tamam.wav",
+      "text": "tamam",
+      "voice": "tr",
+      "words_per_minute": 175,
+      "group": "ordinary",
+      "sha256": "f7e20ccb959483a4402f5f814555c461e545cc8839228873e0a03742bba6f965"
+    },
+    {
+      "file": "base-175-saat_kaç.wav",
+      "text": "saat kaç",
+      "voice": "tr",
+      "words_per_minute": 175,
+      "group": "ordinary",
+      "sha256": "d246bc228baf18c7f49c80487344b80d9a13811e130396e3f76a964c9ed30033"
+    },
+    {
+      "file": "base-175-peri.wav",
+      "text": "peri",
+      "voice": "tr",
+      "words_per_minute": 175,
+      "group": "confusable",
+      "sha256": "3edf583c2d7c3aca26faa5d5e6073a5311196a1b8505f32e4e27755b64ecd21e"
+    },
+    {
+      "file": "base-175-ferdi.wav",
+      "text": "ferdi",
+      "voice": "tr",
+      "words_per_minute": 175,
+      "group": "confusable",
+      "sha256": "be167954f7c7e1a1ddab81222a1d5f97652fcc29168dd2e94c2a89c393394a96"
+    },
+    {
+      "file": "base-175-ferit.wav",
+      "text": "ferit",
+      "voice": "tr",
+      "words_per_minute": 175,
+      "group": "confusable",
+      "sha256": "b52871dcc1969065b1061e538c0e3d5c476ca6410934e7cbc519f315fd75ee00"
+    },
+    {
+      "file": "male2-150-feri.wav",
+      "text": "feri",
+      "voice": "tr+m2",
+      "words_per_minute": 150,
+      "group": "wake",
+      "sha256": "f6c043c8dfe37360dfc46c0467ebca0c53e65fbb58b48800d3a61afa20c5ec41"
+    },
+    {
+      "file": "male2-175-feri.wav",
+      "text": "feri",
+      "voice": "tr+m2",
+      "words_per_minute": 175,
+      "group": "wake",
+      "sha256": "061ed8e4af19e684cbf5307a3e39ea5d11c6ab1529653f4286545e4d7364cbae"
+    },
+    {
+      "file": "male2-210-feri.wav",
+      "text": "feri",
+      "voice": "tr+m2",
+      "words_per_minute": 210,
+      "group": "wake",
+      "sha256": "36a732e078286e5d0db36be27e6c6e6efaefda8107e7fc2c37b48f72c099183b"
+    },
+    {
+      "file": "male2-175-merhaba.wav",
+      "text": "merhaba",
+      "voice": "tr+m2",
+      "words_per_minute": 175,
+      "group": "ordinary",
+      "sha256": "ebe7de429640c9747c717ab0e43fecf51711c59e61a73d4f91204d62d4642c3a"
+    },
+    {
+      "file": "male2-175-tamam.wav",
+      "text": "tamam",
+      "voice": "tr+m2",
+      "words_per_minute": 175,
+      "group": "ordinary",
+      "sha256": "511198758b932b87c785a0a7cc3adca293743df5e22bafb5481cbf9b543db724"
+    },
+    {
+      "file": "male2-175-saat_kaç.wav",
+      "text": "saat kaç",
+      "voice": "tr+m2",
+      "words_per_minute": 175,
+      "group": "ordinary",
+      "sha256": "55a9ec2ff6ee35da54bc66c5561b11409330457dc03f25d435d0a78fa6e65a31"
+    },
+    {
+      "file": "male2-175-peri.wav",
+      "text": "peri",
+      "voice": "tr+m2",
+      "words_per_minute": 175,
+      "group": "confusable",
+      "sha256": "46c80c4356cf202ed6fffb769900bac51bd8b040642d5e356716df20e2994fd1"
+    },
+    {
+      "file": "male2-175-ferdi.wav",
+      "text": "ferdi",
+      "voice": "tr+m2",
+      "words_per_minute": 175,
+      "group": "confusable",
+      "sha256": "3aad564821a62375756aaa7be683d67dc04cf03598016059792c50088659b7e2"
+    },
+    {
+      "file": "male2-175-ferit.wav",
+      "text": "ferit",
+      "voice": "tr+m2",
+      "words_per_minute": 175,
+      "group": "confusable",
+      "sha256": "88e1f812f63f0776bbb217ae134358e9905e59bd4c6eda11aa7db06cc2d0ef2f"
+    },
+    {
+      "file": "female3-150-feri.wav",
+      "text": "feri",
+      "voice": "tr+f3",
+      "words_per_minute": 150,
+      "group": "wake",
+      "sha256": "dba38f9a9d4afaff631e8486589877186e83d12af0087b05cce82efcfd9192a8"
+    },
+    {
+      "file": "female3-175-feri.wav",
+      "text": "feri",
+      "voice": "tr+f3",
+      "words_per_minute": 175,
+      "group": "wake",
+      "sha256": "caf2d30aa9b9acdba41d99f602cc51624efecc8997810de7015ed772ea091323"
+    },
+    {
+      "file": "female3-210-feri.wav",
+      "text": "feri",
+      "voice": "tr+f3",
+      "words_per_minute": 210,
+      "group": "wake",
+      "sha256": "63bbb88510c65707b75c3b60cdbf09885455a738854041dfb24b2326b48b9e65"
+    },
+    {
+      "file": "female3-175-merhaba.wav",
+      "text": "merhaba",
+      "voice": "tr+f3",
+      "words_per_minute": 175,
+      "group": "ordinary",
+      "sha256": "6895e4d24cddf94c70b85c9981a689addf06ae0f05b92be93225a109ca474794"
+    },
+    {
+      "file": "female3-175-tamam.wav",
+      "text": "tamam",
+      "voice": "tr+f3",
+      "words_per_minute": 175,
+      "group": "ordinary",
+      "sha256": "9ccd4aa38258606c94d16564642a7eb4839c7869dc1d8528d13d14d48a2384b3"
+    },
+    {
+      "file": "female3-175-saat_kaç.wav",
+      "text": "saat kaç",
+      "voice": "tr+f3",
+      "words_per_minute": 175,
+      "group": "ordinary",
+      "sha256": "90022145b2d856223fe014f6bdbd474c5a6421511aeaadc567d57df73d4af32c"
+    }
+  ]
+}

@@ -15,6 +15,7 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Switch;
 
 import org.json.JSONArray;
 import org.junit.After;
@@ -40,7 +41,7 @@ import static org.junit.Assert.assertTrue;
 
 /** Exercises the real Activity and public controls without a microphone or emulator. */
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk = {28, 35})
+@Config(sdk = {28, 36})
 public class MainActivityTest {
     private ActivityController<MainActivity> controller;
     private MainActivity activity;
@@ -90,7 +91,7 @@ public class MainActivityTest {
         assertFalse(VoiceModelManager.isReady(activity));
         activity.findViewById(R.id.start_listening).performClick();
         assertTrue(response().contains(VoiceModelManager.hasBundledModel(activity)
-                ? "Önce Türkçe ses modelini hazırla" : "Önce Türkçe ses modelini indir"));
+                ? "Önce ses modellerini hazırla" : "Önce ses modellerini indir"));
         assertTrue(response().contains("Yazılı komutları"));
         assertFalse(CosmoVoiceService.running);
         assertNull(Shadows.shadowOf(RuntimeEnvironment.getApplication()).getNextStartedService());
@@ -122,7 +123,7 @@ public class MainActivityTest {
     @Test public void bundledModelPreparationDoesNotAskForAnInternetDownload() {
         assertTrue(VoiceModelManager.hasBundledModel(activity));
         Button prepare = activity.findViewById(R.id.model_download);
-        assertEquals("Türkçe modeli hazırla", prepare.getText().toString());
+        assertEquals("Ses modellerini hazırla", prepare.getText().toString());
         assertTrue(modelStatus().contains("İnternet gerekmez"));
         prepare.performClick();
         AlertDialog dialog = ShadowAlertDialog.getLatestAlertDialog();
@@ -163,6 +164,35 @@ public class MainActivityTest {
         controller.recreate();
         activity = controller.get();
         assertEquals(failure, modelStatus());
+    }
+
+    @Test public void screenControlCannotEnableWithoutNavigationConsent() {
+        Switch toggle = ReflectionHelpers.getField(activity, "screenControlSwitch");
+        assertFalse(preferences.getBoolean("screen_control_enabled", false));
+        toggle.setChecked(true);
+        assertFalse(toggle.isChecked());
+        assertFalse(preferences.getBoolean("screen_control_enabled", false));
+        assertTrue(response().contains("Önce Sesli gezinme"));
+    }
+
+    @Test public void screenControlRequiresItsOwnExplicitDisclosureApproval() {
+        preferences.edit().putBoolean("accessibility_actions_enabled", true).commit();
+        Switch toggle = ReflectionHelpers.getField(activity, "screenControlSwitch");
+        toggle.setChecked(true);
+        assertFalse("A switch tap alone must not grant screen reading", preferences.getBoolean("screen_control_enabled", false));
+        AlertDialog dialog = ShadowAlertDialog.getLatestAlertDialog();
+        assertNotNull(dialog);
+        assertTrue(Shadows.shadowOf(dialog).getMessage().toString().contains("görünen yazılarını"));
+        dialog.getButton(DialogInterface.BUTTON_NEGATIVE).performClick();
+        Shadows.shadowOf(Looper.getMainLooper()).idle();
+        assertFalse(toggle.isChecked());
+        assertFalse(preferences.getBoolean("screen_control_enabled", false));
+        toggle.setChecked(true);
+        ShadowAlertDialog.getLatestAlertDialog().getButton(DialogInterface.BUTTON_POSITIVE).performClick();
+        Shadows.shadowOf(Looper.getMainLooper()).idle();
+        assertTrue(preferences.getBoolean("screen_control_enabled", false));
+        toggle.setChecked(false);
+        assertFalse(preferences.getBoolean("screen_control_enabled", false));
     }
 
     private VoiceModelManager.Listener modelListener() {

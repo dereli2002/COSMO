@@ -59,6 +59,14 @@ public final class DeviceActionsTest {
         assertNull(Shadows.shadowOf(application).getNextStartedActivity());
     }
 
+    @Test public void selfOpeningWorksWithoutEnumeratingOtherApps() {
+        DeviceActions.Result result = actions.execute(CommandParser.parse("kendini aç"));
+        assertNotNull(result.intent);
+        assertEquals(application.getPackageName(), result.intent.getComponent().getPackageName());
+        assertEquals(MainActivity.class.getName(), result.intent.getComponent().getClassName());
+        assertNull(Shadows.shadowOf(application).getNextStartedActivity());
+    }
+
     @Test public void smsKeepsDestinationAndTurkishBodyInComposeUiOnly() {
         String message = "Öykü, İstanbul'da saat 19:30! & + % #";
         DeviceActions.Result result = actions.execute(new Command(Command.Type.COMPOSE_SMS,

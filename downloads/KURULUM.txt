@@ -1,14 +1,17 @@
-COSMO 0.1.1 - Android 8.0 ve üzeri
+FERİ 0.2.0 — ARM64 Android 8 ve üzeri
+Galaxy S24 Ultra / Android 16 için hazırlanmıştır.
 
-0.1.0 sürümündeki eksik model hatası düzeltildi. Türkçe model APK içindedir.
+1. FERI-v0.2.0-arm64.apk dosyasını mevcut COSMO'nun üzerine kur. Uygulamayı kaldırman gerekmez; aynı imza/kimlikle güncellenir, notların korunur. Yeni adı FERİ olur.
+2. FERİ içinde Ses modellerini hazırla düğmesine bas. Türkçe komut ve Feri sesleniş modelleri APK içindedir; internet gerekmez. Önceki geçerli Türkçe model korunur. En az 170 MB boş alan; indirme/kurulumla toplam yaklaşık 500 MB alan önerilir.
+3. Dinlemeyi başlat düğmesine bas, mikrofon ve bildirim izinlerini ver. Sesli yanıtlar için Android'de çevrimdışı Türkçe metin okuma sesi yüklü olmalıdır.
+4. Feri de, KISA SİNYALİ BEKLE, sonra saat kaç söyle. Her yeni komut için aynı iki adımı kullan. Komut penceresi 10 saniyedir; bu sürümde Feri ile komutu tek nefeste söyleme.
+5. Sesle gezinme/uygulama açma için Sesli gezinme anahtarını açıp Android Erişilebilirlik ayarlarında FERİ sesli denetim hizmetini kendin etkinleştir. Android, APK kurulumu için kısıtlanmış ayarlara izin vermeni isteyebilir.
+6. Ekranı oku, ekranda Kaydet düğmesine bas ve ekrana yaz Merhaba için ayrıca Ekran okuma ve denetimi anahtarındaki açıklamayı onayla. Şifre ve Android izin/güvenlik ekranlarında otomatik denetim yapılmaz.
+7. Gerektikçe Rehber ve sesli arama izinleri ile Parlaklık ve döndürme izni düğmelerinden ilgili Android izinlerini ver. Fener kamera izni ister.
+8. Doğrudan arama, ekrana basma, yazma ve güç menüsü işlemlerinde FERİ önce ne yapacağını söyler. Yeniden Feri de, sinyali bekle ve onayla söyle. Otuz saniyede onay vermezsen, iptal dersen, başka komut verirsen veya ekran kapanırsa işlem iptal edilir.
+9. Durdurmak için uygulama/bildirim düğmesini veya Feri → sinyal → dinlemeyi durdur komutunu kullan. Yeniden başlatma/zorla durdurma sonrasında dinlemeyi elle başlat.
 
-1. COSMO-v0.1.1-debug.apk dosyasını mevcut COSMO uygulamasının üzerine kur. Aynı imzayla güncellenir; notların korunur.
-2. COSMO içinde Türkçe modeli hazırla düğmesine bas. Bu adımda internet gerekmez; model dosyaları telefonda açılır.
-3. Türkçe model hazır yazısını görünce Dinlemeyi başlat düğmesine bas; mikrofon ve bildirim izinlerini ver.
-4. Asistan, saat kaç de. Bu modelde sesleniş Asistan sözcüğüdür; uygulamanın adı COSMO.
-5. Durdurmak için bildirimde Dinlemeyi durdur düğmesine bas.
+Örnekler: feneri aç · kendini aç · YouTube aç · geri git · ekranı oku · parlaklığı yüzde elli yap · Ahmet kişisini ara · kamerayı aç · not al yarın süt al.
+Wi-Fi/Bluetooth ve bazı sistem işlemleri Android ayar ekranına yönlendirilir. Sınırsız sistem/root erişimi yoktur. SMS ve takvim taslak olarak açılır.
 
-Modeli açmak için en az 80 MB boş alan gerekir; uygulama ve veriler için yaklaşık 250 MB alan önerilir.
-Sesli yanıtlar için Android ayarlarından çevrimdışı Türkçe metin okuma sesi yüklenmelidir.
-64 otomatik test ve gerçek modelin native yüklenmesi doğrulandı; fiziksel telefon mikrofonu ve ekran kapalı çalışma henüz denenmedi.
-Ayrıntılar README.md ve VALIDATION.md dosyalarındadır.
+Yeni FERİ seslenişi gerçek telefonda ayrıca denenmelidir; benzer isimler de kısa komut penceresini açabilir. Ayrıntılı test sonuçları VALIDATION.md, tüm komutlar README.md içindedir.

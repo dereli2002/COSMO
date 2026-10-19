@@ -8,7 +8,7 @@
         <item name="android:windowBackground">#10151F</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>
-    <string name="app_name">COSMO</string>
+    <string name="app_name">FERİ</string>
     <string name="navigation_opt_in">Sesli gezinme  ·  isteğe bağlı</string>
     <string name="cancel_download">İndirmeyi iptal et</string>
     <string name="cancel_model_setup">Hazırlamayı iptal et</string>
@@ -20,5 +20,6 @@
     <string name="optional">isteğe bağlı</string>
     <string name="enabled">etkin</string>
     <string name="disabled">kapalı</string>
-    <string name="accessibility_description">Yalnızca sizin verdiğiniz geri, ana ekran, son uygulamalar, bildirim ve kaydırma komutlarını uygular. Bu izin isteğe bağlıdır. COSMO ekran metinlerini kaydetmez veya sunucuya göndermez. Ayarlar ve izin düğmelerine otomatik basmaz. COSMO içinden gezinme erişimini dilediğiniz an kapatabilirsiniz.</string>
+    <string name="screen_control_opt_in">Ekran okuma ve denetimi  ·  isteğe bağlı</string>
+    <string name="accessibility_description">FERİ; sesli gezinme, uygulama açma, ekran kilitleme ve ekran görüntüsü komutlarını uygular. Ekran okuma ve denetimi için uygulamada ayrıca onay vermeniz gerekir. Bu ek özellik açılırsa yalnızca açık komutunuz üzerine etkin ekranın görünen yazılarını okur; düğmeye basma ve metin yazma için sesli onay ister. Ekran yazıları kaydedilmez veya sunucuya gönderilmez. Şifre alanlarına yazmaz, güvenlik ve izin ekranlarını denetlemez. İsteğe bağlı izinleri FERİ içinde kapatabilirsiniz.</string>
 </resources>

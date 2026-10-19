@@ -1,16 +1,20 @@
 # Üçüncü taraf bileşenler
 
-Uygulamadaki bağımlılıklar kendi lisanslarına tabidir. Apache-2.0 lisans metni APK içinde `assets/licenses/Apache-2.0.txt` konumunda da bulunur.
+FERİ bağımlılıklarının lisansları kendilerine aittir. Apache-2.0 metni APK içinde `assets/licenses/Apache-2.0.txt` konumundadır. JNA çift lisans bildirimi de korunur; bu dağıtımda Apache-2.0 seçeneği kullanılır.
 
-| Bileşen | Sürüm | Lisans / kaynak |
+| Bileşen | Sürüm | Kaynak / lisans |
 | --- | --- | --- |
-| Vosk Android | 0.3.75 | Apache-2.0; https://github.com/alphacep/vosk-api |
-| Java Native Access | 5.18.1 | Apache-2.0 veya LGPL-2.1-or-later; https://github.com/java-native-access/jna |
-| AndroidX Core ve geçişli AndroidX bileşenleri | Gradle ile sabitlenen sürümler | Apache-2.0; https://android.googlesource.com/platform/frameworks/support/ |
-| Kotlin standard library (AndroidX geçişli bağımlılığı) | Gradle çözümlemesi | Apache-2.0; https://github.com/JetBrains/kotlin |
+| Vosk Android | 0.3.75 | https://github.com/alphacep/vosk-api — Apache-2.0 |
+| JNA | 5.18.1 | https://github.com/java-native-access/jna — Apache-2.0 veya LGPL-2.1+ |
+| AndroidX / Kotlin geçişli bileşenleri | Gradle çözümlemesi | Apache-2.0 |
+| Türkçe model | vosk-model-small-tr-0.3 | https://alphacephei.com/vosk/models/ — Apache-2.0 |
+| FERİ seslenişi için İngilizce model | vosk-model-small-en-us-0.15 | aynı resmî model listesi — Apache-2.0 |
 
-JNA'nın özgün çift lisans açıklaması `assets/licenses/JNA-LICENSE.txt` içindedir. COSMO dağıtımında Apache-2.0 seçeneği kullanılır. Kütüphane kaynakları değiştirilmemiştir.
+İki model arşivi değiştirilmeden `assets/models` altında dağıtılır. Model README dosyaları korunur. SHA-256 değerleri:
 
-`vosk-model-small-tr-0.3` APK içinde `assets/models/vosk-model-small-tr-0.3.zip` olarak dağıtılır. Resmî kaynak: https://alphacephei.com/vosk/models/ . Model listesinde lisansı Apache-2.0 olarak belirtilir. Arşiv değiştirilmemiştir; SHA-256 değeri `8c8d07cec1bce31add14967c16891c84152cdf76d391e33c08278119b9ea96e5` olarak sabitlenmiştir. Modelin README ve diğer dosyaları aynen korunur; Apache-2.0 lisans metni APK içinde `assets/licenses/Apache-2.0.txt` konumundadır.
+```text
+8c8d07cec1bce31add14967c16891c84152cdf76d391e33c08278119b9ea96e5  vosk-model-small-tr-0.3.zip
+30f26242c4eb449f948e42cb302dd7a686cb29a3423a8367f99ff41780942498  vosk-model-small-en-us-0.15.zip
+```
 
-JUnit, Robolectric ve AndroidX test bileşenleri yalnız geliştirme/test için kullanılır; ana APK'ya test bağımlılığı olarak eklenmez.
+JUnit, Robolectric ve AndroidX test bileşenleri ana APK'ya test bağımlılığı olarak eklenmez. `app/src/test/resources/wake` içindeki sentetik sesler yalnız test içindir; APK'ya eklenmez. Üretim kaynağı ve SHA-256 listesi o klasörün README/manifest dosyalarındadır; gerçek kullanıcı sesi içermez.

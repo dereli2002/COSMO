@@ -1,52 +1,39 @@
 package com.cosmo.assistant;
 
-import java.util.Locale;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-/** Consumes complete utterances only. Audio and partial recognition never trigger an action. */
+/**
+ * Authorizes exactly one Turkish utterance after the separate FERİ wake recognizer.
+ * A caller must pass complete results only and start the window after the acknowledgement.
+ */
 public final class WakeWordGate {
     public static final long COMMAND_WINDOW_MS = 10_000L;
-    private static final Pattern TOKEN = Pattern.compile("[\\p{L}\\p{N}]+");
+    // Calibrated with the wake recognizer's ferry/perry/[unk] grammar. Perry is a decoy,
+    // never an accepted wake word. Physical microphone accuracy still needs device testing.
+    public static final double MIN_WAKE_CONFIDENCE = 0.65;
     private long deadline = -1L;
 
     /**
-     * Returns one command, or null when a wake phrase/command is still needed.
-     * The caller supplies a monotonic clock, e.g. Android's elapsedRealtime().
-     */
-    public String accept(String utterance, long nowMs) {
-        String text = utterance == null ? "" : utterance.trim();
-        if (text.isEmpty()) return null;
-        if (deadline >= 0L && nowMs > deadline) deadline = -1L;
-
-        Matcher token = TOKEN.matcher(text);
-        if (!token.find()) return null;
-        String first = token.group().toLowerCase(Locale.forLanguageTag("tr-TR"));
-        if (first.equals("hey") || first.equals("merhaba")) {
-            if (!token.find()) return consumeArmedText(text);
-            first = token.group().toLowerCase(Locale.forLanguageTag("tr-TR"));
-        }
-        boolean hasWake = isWakeWord(first);
-        if (hasWake) {
-            // Strip only wake separators. Preserve clock punctuation, case, notes and SMS bodies.
-            String command = text.substring(token.end()).replaceFirst("^[\\s,.:;!?…\\-–—]+", "").trim();
-            if (command.isEmpty()) {
-                deadline = nowMs + COMMAND_WINDOW_MS;
-                return null;
-            }
-            deadline = -1L;
-            return command;
-        }
-
-        return consumeArmedText(text);
+     * "ferry" is the wake model's vocabulary word for the spoken name Feri.
+     * A word confidence is meaningful only with the separate wake model's complete result. */
+    public static boolean isFeriWake(String utterance, double confidence) {
+        return utterance != null && "ferry".equalsIgnoreCase(utterance.trim())
+                && !Double.isNaN(confidence) && !Double.isInfinite(confidence)
+                && confidence >= MIN_WAKE_CONFIDENCE && confidence <= 1.0;
     }
 
-    private String consumeArmedText(String text) {
-        if (deadline >= 0L) {
+    public void armFeri(long nowMs) {
+        deadline = nowMs + COMMAND_WINDOW_MS;
+    }
+
+    /** Keeps the user's punctuation and case, and consumes authorization only for nonempty text. */
+    public String acceptCommand(String utterance, long nowMs) {
+        if (!isAwaitingCommand(nowMs)) {
             deadline = -1L;
-            return text;
+            return null;
         }
-        return null;
+        String text = utterance == null ? "" : utterance.trim();
+        if (text.isEmpty()) return null;
+        deadline = -1L;
+        return text;
     }
 
     public boolean isAwaitingCommand(long nowMs) {
@@ -56,11 +43,4 @@ public final class WakeWordGate {
     public void reset() {
         deadline = -1L;
     }
-
-    private static boolean isWakeWord(String word) {
-        // Turkish recognizers may spell COSMO differently; "asistan" is a documented fallback.
-        return word.equals("cosmo") || word.equals("kosmo") || word.equals("kozmo")
-                || word.equals("kozmos") || word.equals("asistan");
-    }
-
 }

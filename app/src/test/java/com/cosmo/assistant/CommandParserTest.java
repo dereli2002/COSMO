@@ -212,6 +212,127 @@ public final class CommandParserTest {
         assertType(Command.Type.MEDIA_PLAY_PAUSE, "oynat duraklat");
     }
 
+    @Test public void parsesBrightnessPercentagesAndSpokenValuesWithoutClamping() {
+        assertCommand(Command.Type.BRIGHTNESS_SET, "50", "parlaklığı yüzde elli yap");
+        assertCommand(Command.Type.BRIGHTNESS_SET, "0", "ekran parlaklığını yüzde sıfır ayarla");
+        assertCommand(Command.Type.BRIGHTNESS_SET, "100", "parlaklığı %100 yap");
+        assertType(Command.Type.BRIGHTNESS_UP, "ekran parlaklığını artır");
+        assertType(Command.Type.BRIGHTNESS_DOWN, "parlaklığı kıs");
+        assertType(Command.Type.UNKNOWN, "parlaklığı yüzde yüz bir yap");
+        assertType(Command.Type.UNKNOWN, "parlaklığı yüzde -1 yap");
+        assertType(Command.Type.UNKNOWN, "parlaklığı yüzde elli elli yap");
+        assertType(Command.Type.UNKNOWN, "parlaklığı yüzde 50.5 yap");
+        assertType(Command.Type.UNKNOWN, "parlaklığı yüzde 999999999999 yap");
+    }
+
+    @Test public void parsesRotationScreenLockAndScreenshotCommands() {
+        assertType(Command.Type.ROTATION_AUTO, "otomatik döndürmeyi aç");
+        assertType(Command.Type.ROTATION_PORTRAIT, "ekranı dikey kilitle");
+        assertType(Command.Type.ROTATION_PORTRAIT, "otomatik döndürmeyi kapat");
+        assertType(Command.Type.SCREEN_LOCK, "telefonu kilitle");
+        assertType(Command.Type.SCREENSHOT, "ekran görüntüsü al");
+        assertType(Command.Type.SCREENSHOT, "ekranın resmini çek");
+    }
+
+    @Test public void routesCameraAndCalendarToExplicitUserInterfaces() {
+        assertType(Command.Type.CAMERA_PHOTO, "fotoğraf çek");
+        assertType(Command.Type.CAMERA_VIDEO, "video kaydet");
+        assertCommand(Command.Type.CALENDAR_INSERT, "Yarın İZMİR’de toplantı!",
+                "takvime ekle: Yarın İZMİR’de toplantı!");
+        assertCommand(Command.Type.CALENDAR_INSERT, "Doktor randevusu",
+                "takvim etkinliği oluştur Doktor randevusu");
+        assertType(Command.Type.UNKNOWN, "takvime ekle");
+    }
+
+    @Test public void parsesVisibleScreenLabelsAndPreservesTypedText() {
+        assertCommand(Command.Type.SCREEN_CLICK, "Kaydet", "ekranda Kaydet düğmesine bas");
+        assertCommand(Command.Type.SCREEN_CLICK, "Ayarlar", "ekrandaki Ayarlar öğesine tıkla");
+        assertCommand(Command.Type.SCREEN_CLICK, "Gönder", "ekranda Gönder tıkla");
+        assertCommand(Command.Type.SCREEN_TYPE, "İyi akşamlar!  Yarın 2’de görüşürüz.",
+                "ekrana yaz: İyi akşamlar!  Yarın 2’de görüşürüz.");
+        assertCommand(Command.Type.SCREEN_TYPE, "112 numarasını ara", "metin yaz 112 numarasını ara");
+        assertType(Command.Type.SCREEN_READ, "ekranda ne var?");
+        assertType(Command.Type.UNKNOWN, "ekrana yaz");
+        assertType(Command.Type.UNKNOWN, "izin ver");
+        assertType(Command.Type.UNKNOWN, "tüm izinleri onayla");
+    }
+
+    @Test public void resolvesContactsOnlyThroughExplicitContactGrammar() {
+        assertCommand(Command.Type.DIAL_CONTACT, "Ahmet", "Ahmet adlı kişiyi ara");
+        assertCommand(Command.Type.DIAL_CONTACT, "AYŞE Yılmaz", "AYŞE Yılmaz kişisini ara");
+        assertCommand(Command.Type.DIAL_CONTACT, "annem", "annemi ara");
+        assertCommand(Command.Type.DIAL_CONTACT, "esim", "eşimi ara");
+        assertType(Command.Type.UNKNOWN, "Ahmet ara");
+        assertType(Command.Type.UNKNOWN, "Ankara ara");
+        assertType(Command.Type.UNKNOWN, "bir şey ara");
+    }
+
+    @Test public void preservesContactSmsPayloadAndDoesNotInterpretEmbeddedActions() {
+        Command command = CommandParser.parse("İpek adlı kişiye mesaj yaz: Merhaba!  112 numarasını ara.");
+        assertEquals(Command.Type.COMPOSE_SMS_CONTACT, command.type);
+        assertEquals("İpek", command.argument);
+        assertEquals("Merhaba!  112 numarasını ara.", command.secondary);
+        assertType(Command.Type.UNKNOWN, "Ahmet adlı kişiye mesaj yaz");
+        assertType(Command.Type.UNKNOWN, "Ahmet mesaj gönder");
+    }
+
+    @Test public void opensContactDetailsByExplicitLabel() {
+        assertCommand(Command.Type.CONTACT_SHOW, "Özge", "rehberde Özge kişisini göster");
+        assertCommand(Command.Type.CONTACT_SHOW, "Çağrı", "Çağrı adlı kişiyi göster");
+        assertCommand(Command.Type.CONTACT_SHOW, "Ali Veli", "kişiyi göster Ali Veli");
+    }
+
+    @Test public void keepsQueriesAboutContactsAsSearches() {
+        assertCommand(Command.Type.WEB_SEARCH, "Ahmet adlı kişiyi", "internette Ahmet adlı kişiyi ara");
+        assertCommand(Command.Type.MAP_SEARCH, "Ahmet kişisini ara", "yol tarifi Ahmet kişisini ara");
+        assertCommand(Command.Type.MAP_SEARCH, "Ahmet kişisini", "haritada Ahmet kişisini ara");
+    }
+
+    @Test public void directCallIntentRequiresExplicitWordingAndValidNumber() {
+        assertCommand(Command.Type.CALL, "05551234567", "0555 123 45 67 numarasını telefonla ara");
+        assertCommand(Command.Type.CALL, "112", "bir bir iki numarasını doğrudan ara");
+        assertCommand(Command.Type.DIAL, "112", "112 numarasını ara");
+        assertType(Command.Type.UNKNOWN, "12 numarasını telefonla ara");
+        assertType(Command.Type.UNKNOWN, "0555abc numarasını telefonla ara");
+        assertType(Command.Type.UNKNOWN, "Ahmet numarasını telefonla ara");
+    }
+
+    @Test public void routesAndroidRestrictedFeaturesToTheirSettingsPages() {
+        assertType(Command.Type.APP_SETTINGS, "Cosma ayarlarını aç");
+        assertType(Command.Type.DISPLAY_SETTINGS, "ekran ayarlarını aç");
+        assertType(Command.Type.SOUND_SETTINGS, "ses ayarlarını aç");
+        assertType(Command.Type.ACCESSIBILITY_SETTINGS, "erişilebilirlik ayarlarını aç");
+        assertType(Command.Type.BATTERY_SETTINGS, "pil ayarlarını aç");
+        assertType(Command.Type.AIRPLANE_SETTINGS, "uçak modunu aç");
+        assertType(Command.Type.HOTSPOT_SETTINGS, "erişim noktasını kapat");
+        assertType(Command.Type.NFC_SETTINGS, "NFC'yi aç");
+        assertType(Command.Type.PRIVACY_SETTINGS, "gizlilik ayarlarını aç");
+        assertType(Command.Type.STORAGE_SETTINGS, "depolama ayarlarını aç");
+    }
+
+    @Test public void addsPreviousTrackAndExplicitPowerRequests() {
+        assertType(Command.Type.MEDIA_PREVIOUS, "önceki şarkı");
+        assertType(Command.Type.POWER_OFF, "telefonu kapat");
+        assertType(Command.Type.REBOOT, "telefonu yeniden başlat");
+        assertType(Command.Type.STOP_LISTENING, "Cosma’yı durdur");
+    }
+
+    @Test public void localFriendlyRepliesAndStatusUseWholeCommands() {
+        assertCommand(Command.Type.GREETING, "hello", "merhaba");
+        assertCommand(Command.Type.GREETING, "how_are_you", "nasılsın?");
+        assertCommand(Command.Type.GREETING, "thanks", "teşekkür ederim");
+        assertCommand(Command.Type.GREETING, "name", "adın ne");
+        assertType(Command.Type.SELF_STATUS, "dinliyor musun?");
+        assertCommand(Command.Type.NOTE_SAVE, "merhaba nasılsın", "not al merhaba nasılsın");
+        assertType(Command.Type.UNKNOWN, "merhaba nasılsın bugün hava nasıl");
+    }
+
+    private void assertCommand(Command.Type expected, String argument, String speech) {
+        Command command = CommandParser.parse(speech);
+        assertEquals(speech, expected, command.type);
+        assertEquals(speech, argument, command.argument);
+    }
+
     private void assertType(Command.Type expected, String speech) {
         assertEquals(speech, expected, CommandParser.parse(speech).type);
     }

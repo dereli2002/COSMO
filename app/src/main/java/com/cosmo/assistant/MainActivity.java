@@ -48,6 +48,7 @@ public final class MainActivity extends Activity {
     private SharedPreferences preferences;
     private TextView status, detail, modelStatus, reply, permissionStatus;
     private Button listenButton, modelButton;
+    private Switch screenControlSwitch;
     private ProgressBar progress;
     private EditText command;
     private TextToSpeech speaker;
@@ -114,10 +115,10 @@ public final class MainActivity extends Activity {
         frame.addView(scroll, new LinearLayout.LayoutParams(-1, -1));
         setContentView(frame);
 
-        TextView eyebrow = text("KİŞİSEL SESLİ ASİSTAN  /  0.1.1", 11, MINT);
+        TextView eyebrow = text("KİŞİSEL SESLİ DOSTUN  /  0.2.0", 11, MINT);
         eyebrow.setLetterSpacing(.15f);
         page.addView(eyebrow);
-        TextView title = text("COSMO", 44, TEXT);
+        TextView title = text("FERİ", 44, TEXT);
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         title.setLetterSpacing(.1f);
         page.addView(title);
@@ -129,7 +130,7 @@ public final class MainActivity extends Activity {
         status = text("●  Dinleme kapalı", 21, MINT);
         status.setId(R.id.listening_status);
         voice.addView(status);
-        detail = text("Asistan diyerek seslen; ardından komutunu söyle.", 15, MUTED);
+        detail = text("Feri diyerek seslen; kısa sinyalden sonra komutunu söyle.", 15, MUTED);
         spaced(voice, detail);
         listenButton = button("Dinlemeyi başlat", true);
         listenButton.setId(R.id.start_listening);
@@ -145,14 +146,14 @@ public final class MainActivity extends Activity {
         progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         progress.setVisibility(View.GONE);
         spaced(model, progress);
-        modelButton = button(bundledModel ? "Türkçe modeli hazırla" : "Türkçe modeli indir", false);
+        modelButton = button(bundledModel ? "Ses modellerini hazırla" : "Ses modellerini indir", false);
         modelButton.setId(R.id.model_download);
         modelButton.setOnClickListener(v -> {
             if (downloadInProgress) {
                 VoiceModelManager.cancelDownload();
-            } else new AlertDialog.Builder(this).setTitle(bundledModel ? "Türkçe modeli hazırla" : "Türkçe modeli indir")
+            } else new AlertDialog.Builder(this).setTitle(bundledModel ? "Ses modellerini hazırla" : "Ses modellerini indir")
                     .setMessage(bundledModel
-                            ? "Türkçe ses modeli uygulamayla birlikte gelir; internet gerekmez. Dosyalar bu telefonda açılıp doğrulanacak. Hazırlanırken bu ekranı açık tut. Sesin yalnızca cihazda işlenir."
+                            ? "Feri seslenişi ve Türkçe komut modelleri uygulamayla gelir; internet gerekmez. İki model telefonda açılıp doğrulanır. En az 170 MB boş alan gerekir. Hazırlanırken bu ekranı açık tut."
                             : "Vosk Türkçe modeli alphacephei.com adresinden indirilir (yaklaşık 35 MB). İndirme sırasında bu ekranı açık tut. Model hazır olunca sesin yalnızca cihazda işlenir.")
                     .setPositiveButton(bundledModel ? "Hazırla" : "İndir", (dialog, which) -> downloadModel())
                     .setNegativeButton("Vazgeç", null).show();
@@ -187,6 +188,14 @@ public final class MainActivity extends Activity {
         Button torchPermission = button("Fener için kamera izni", false);
         torchPermission.setOnClickListener(v -> requestPermissions(new String[]{Manifest.permission.CAMERA}, 102));
         spaced(access, torchPermission);
+        Button contactsPermission = button("Rehber ve sesli arama izinleri", false);
+        contactsPermission.setOnClickListener(v -> requestPermissions(
+                new String[]{Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE}, 103));
+        spaced(access, contactsPermission);
+        Button displayPermission = button("Parlaklık ve döndürme izni", false);
+        displayPermission.setOnClickListener(v -> open(new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS,
+                Uri.parse("package:" + getPackageName()))));
+        spaced(access, displayPermission);
         Switch navigation = new Switch(this);
         navigation.setText(R.string.navigation_opt_in);
         navigation.setTextColor(TEXT);
@@ -195,11 +204,14 @@ public final class MainActivity extends Activity {
         navigation.setChecked(preferences.getBoolean("accessibility_actions_enabled", false));
         navigation.setOnCheckedChangeListener((view, enabled) -> {
             if (!enabled) {
-                preferences.edit().putBoolean("accessibility_actions_enabled", false).apply();
+                preferences.edit().putBoolean("accessibility_actions_enabled", false)
+                        .putBoolean("screen_control_enabled", false).apply();
+                if (screenControlSwitch != null) screenControlSwitch.setChecked(false);
+                new PhoneFeatures(this).execute(new Command(Command.Type.CANCEL));
                 return;
             }
             new AlertDialog.Builder(this).setTitle("Sesli gezinmeye izin ver")
-                    .setMessage("COSMO; geri, ana ekran, son uygulamalar, bildirimler ve kaydırma komutlarını uygular. Bu özellik ekranda kaydırma hareketi yapabilir. Ekran metinlerini okumaz, kaydetmez veya paylaşmaz; izin düğmelerine basmaz.\n\nDevam edersen Android Erişilebilirlik ayarlarında COSMO'yu kendin etkinleştirmelisin. Bu anahtarı kapatarak COSMO'nun gezinme komutlarını hemen durdurabilirsin.")
+                    .setMessage("FERİ; geri, ana ekran, son uygulamalar, bildirimler ve kaydırma komutlarını uygular. Bu özellik ekranda kaydırma hareketi yapabilir. Ekran okuma ve denetimi ayrı anahtarla açılır. Bu anahtar yalnız gezinmeye ve sesle uygulama açmaya izin verir; izin düğmelerine basmaz.\n\nDevam edersen Android Erişilebilirlik ayarlarında FERİ'yi kendin etkinleştirmelisin. Bu anahtarı kapatarak FERİ'nin gezinme komutlarını hemen durdurabilirsin.")
                     .setPositiveButton("Ayarları aç", (dialog, which) -> {
                         preferences.edit().putBoolean("accessibility_actions_enabled", true).apply();
                         open(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
@@ -208,19 +220,47 @@ public final class MainActivity extends Activity {
         });
         spaced(access, navigation);
         spaced(access, text("Android erişilebilirlik izni ayrıca açılmalıdır. Telefon kilitliyken gezinme komutları çalışmaz.", 12, MUTED));
+        screenControlSwitch = new Switch(this);
+        screenControlSwitch.setText(R.string.screen_control_opt_in);
+        screenControlSwitch.setTextColor(TEXT);
+        screenControlSwitch.setTextSize(15);
+        screenControlSwitch.setMinHeight(dp(52));
+        screenControlSwitch.setChecked(preferences.getBoolean("screen_control_enabled", false));
+        screenControlSwitch.setOnCheckedChangeListener((view, enabled) -> {
+            if (!enabled) {
+                preferences.edit().putBoolean("screen_control_enabled", false).apply();
+                new PhoneFeatures(this).execute(new Command(Command.Type.CANCEL));
+                return;
+            }
+            if (!preferences.getBoolean("accessibility_actions_enabled", false)) {
+                screenControlSwitch.setChecked(false);
+                showReply("Önce Sesli gezinme anahtarını açıp Android erişilebilirlik ayarlarında FERİ'ye izin ver.");
+                return;
+            }
+            new AlertDialog.Builder(this).setTitle("Ekran okuma ve denetimine izin ver")
+                    .setMessage("Bu özellik, açık komutun üzerine etkin uygulamanın görünen yazılarını okuyabilir ve seslendirebilir. Söylediğin düğmeye basabilir veya seçili alana metin yazabilir. Tıklama ve yazma için önce ne yapılacağını söyler; yeniden Feri diyerek onayla demeni bekler.\n\nEkran yazıları kaydedilmez veya sunucuya gönderilmez. Şifre alanları ve Android izin/güvenlik ekranları denetlenmez. Bu anahtarı kapatınca özellik hemen kapanır.")
+                    .setPositiveButton("İzin ver", (dialog, which) -> {
+                        preferences.edit().putBoolean("screen_control_enabled", true).apply();
+                        if (!CosmoAccessibilityService.isAvailable(this)) open(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+                    }).setNegativeButton("Vazgeç", (dialog, which) -> screenControlSwitch.setChecked(false))
+                    .setOnCancelListener(dialog -> screenControlSwitch.setChecked(false)).show();
+        });
+        spaced(access, screenControlSwitch);
+        spaced(access, text("Ekranı oku · Ekranda Kaydet düğmesine bas · Ekrana yaz Merhaba. Ekran veya alıcı onay sırasında değişirse işlem iptal edilir.", 12, MUTED));
         Button battery = button("Pil optimizasyonu ayarları", false);
         battery.setOnClickListener(v -> open(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)));
         spaced(access, battery);
-        Button settings = button("COSMO uygulama izinleri", false);
+        Button settings = button("FERİ uygulama izinleri", false);
         settings.setOnClickListener(v -> open(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                 Uri.parse("package:" + getPackageName()))));
         spaced(access, settings);
 
         LinearLayout examples = card(page);
         examples.addView(text("Neler söyleyebilirsin?", 18, TEXT));
-        spaced(examples, text("“Asistan, saat kaç?”\n“Asistan, pil durumu”\n“Asistan, feneri aç”\n“Asistan, sesi artır”\n“Asistan, not al yarın süt al”\n“Asistan, notlarımı oku”\n“Asistan, YouTube aç”\n“Asistan, Wi-Fi ayarları”\n“Asistan, 07:30 alarm kur”\n“Asistan, 5 dakika zamanlayıcı kur”\n“Asistan, Ankara haritada ara”\n“Asistan, dinlemeyi durdur”", 15, MUTED));
-        spaced(examples, text("COSMO'nun bu sürümünde uyandırma sözcüğü “Asistan”. Komutunu tek cümlede ya da seslendikten sonraki 10 saniyede söyle.", 12, MUTED));
-        spaced(examples, text("Arama ve mesajlarda telefonun kendi ekranı açılır; aramayı veya gönderimi sen tamamlarsın. Arka plandayken ekran açılması gereken işlemler için bildirime dokun. Kilit ekranından işlem onayı atlanmaz.", 12, MUTED));
+        spaced(examples, text("Önce Feri de ve sinyali bekle. Ardından:\n“saat kaç”\n“pil durumu”\n“feneri aç”\n“sesi artır”\n“not al yarın süt al”\n“notlarımı oku”\n“YouTube aç”\n“kendini aç”\n“Wi-Fi ayarları”\n“07:30 alarm kur”\n“5 dakika zamanlayıcı kur”\n“Ankara haritada ara”\n“dinlemeyi durdur”", 15, MUTED));
+        spaced(examples, text("Sinyalden sonra ayrıca: Parlaklığı yüzde elli yap · Otomatik döndürmeyi aç · Ekran görüntüsü al · Ekranı kilitle · Ahmet kişisini ara · Takvime toplantı ekle · Kamerayı aç · Ekranı oku · Durumunu söyle · Merhaba", 15, MUTED));
+        spaced(examples, text("Feri de, kısa sinyali bekle ve komutunu sonraki 10 saniyede söyle. Her komuttan önce yeniden Feri diye seslen.", 12, MUTED));
+        spaced(examples, text("Doğrudan arama, ekrandaki düğmeye basma ve metin yazma sesli onay ister: yeniden Feri de, sinyalden sonra onayla söyle. Erişilebilirlik açıkken ekranlar sesle açılır; izin kapalıysa işlem bildirimine dokun. Android kilidi korunur.", 12, MUTED));
         space(page, 12);
         page.addView(text("Hesap gerekmez. Notlar bu cihazda saklanır.\nBu sürüm belirli komutları uygular; serbest sohbet içermez.", 12, MUTED));
     }
@@ -232,7 +272,7 @@ public final class MainActivity extends Activity {
             return;
         }
         if (!VoiceModelManager.isReady(this)) {
-            showReply((bundledModel ? "Önce Türkçe ses modelini hazırla." : "Önce Türkçe ses modelini indir.")
+            showReply((bundledModel ? "Önce ses modellerini hazırla." : "Önce ses modellerini indir.")
                     + " Yazılı komutları hemen kullanabilirsin.");
             return;
         }
@@ -336,11 +376,11 @@ public final class MainActivity extends Activity {
         if (status == null) return;
         boolean running = CosmoVoiceService.running;
         boolean listening = running && preferences.getBoolean("listening", false);
-        status.setText(listening ? "●  COSMO dinliyor" : running ? "◌  Ses sistemi hazırlanıyor" : "○  Dinleme kapalı");
+        status.setText(listening ? "●  FERİ dinliyor" : running ? "◌  Ses sistemi hazırlanıyor" : "○  Dinleme kapalı");
         listenButton.setText(running ? "Dinlemeyi durdur" : "Dinlemeyi başlat");
         String serviceStatus = preferences.getString("voice_status", "");
         detail.setText(!serviceStatus.isEmpty() ? serviceStatus
-                : "Asistan diyerek seslen; ardından komutunu söyle.");
+                : "Feri diyerek seslen; kısa sinyalden sonra komutunu söyle.");
         boolean ready = VoiceModelManager.isReady(this);
         boolean wasDownloading = downloadInProgress;
         downloadInProgress = VoiceModelManager.isDownloading();
@@ -357,7 +397,7 @@ public final class MainActivity extends Activity {
             modelStatus.setText(ready ? "✓ Türkçe model hazır. Ses çözümleme bu cihazda yapılır."
                     : modelError != null ? modelError
                     : modelSetupDescription());
-            modelButton.setText(ready ? "Türkçe model hazır" : bundledModel ? "Türkçe modeli hazırla" : "Türkçe modeli indir");
+            modelButton.setText(ready ? "Türkçe model hazır" : bundledModel ? "Ses modellerini hazırla" : "Ses modellerini indir");
             modelButton.setEnabled(!ready);
         }
         String last = preferences.getString("last_reply", "");
@@ -377,12 +417,14 @@ public final class MainActivity extends Activity {
 
     private String modelSetupDescription() {
         return bundledModel
-                ? "İnternet gerekmez; Türkçe ses modeli uygulamayla birlikte gelir. İlk kullanımda modeli hazırla. Seslerin sunucuya gönderilmez."
+                ? "İnternet gerekmez; Feri seslenişi ve Türkçe komut modelleri uygulamayla gelir. İlk kullanımda ikisini hazırla. En az 170 MB boş alan gerekir."
                 : "İlk kullanımda yaklaşık 35 MB indirilir. Sonraki dinlemeler internetsizdir; seslerin sunucuya gönderilmez.";
     }
 
     private void open(Intent intent) {
-        try { startActivity(intent); }
+        try {
+            if (!CosmoAccessibilityService.openExternalActivity(this, intent)) startActivity(intent);
+        }
         catch (ActivityNotFoundException | SecurityException exception) {
             Toast.makeText(this, "Bu işlemi açabilecek bir uygulama veya izin bulunamadı.", Toast.LENGTH_LONG).show();
         }
