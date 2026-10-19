@@ -4,18 +4,20 @@ Android telefonlar için Türkçe, sesli kişisel asistan. İlk sürüm; belirli
 
 ## Dosyaları indir
 
-- **[COSMO 0.1.0 APK dosyasını indir](https://github.com/dereli2002/COSMO/raw/refs/heads/main/downloads/COSMO-v0.1.0-debug.apk)** — yaklaşık 41 MB, Android için deneme sürümü.
-- [Kaynak kodu ZIP olarak indir](https://github.com/dereli2002/COSMO/raw/refs/heads/main/downloads/COSMO-v0.1.0-kaynak.zip)
+- **[COSMO 0.1.1 APK dosyasını indir](https://github.com/dereli2002/COSMO/raw/refs/heads/main/downloads/COSMO-v0.1.1-debug.apk)** — yaklaşık 76 MB, Türkçe ses modeli dahil.
+- [Kaynak kodu ZIP olarak indir](https://github.com/dereli2002/COSMO/raw/refs/heads/main/downloads/COSMO-v0.1.1-kaynak.zip)
 - [Kısa kurulum adımları](downloads/KURULUM.txt) · [SHA-256 sağlama toplamları](downloads/SHA256SUMS.txt)
 
 Dosyalar GitHub'da `downloads` klasöründedir. APK dosyasının GitHub sayfasını açtıysan **Download raw file / Ham dosyayı indir** düğmesini kullan. ZIP kaynak kod içindir; telefona kurulacak dosya `.apk` uzantılıdır.
 
+**0.1.1 güncellemesi:** Türkçe modelin geçerli eski dosya düzeni artık tanınıyor. Önceki sürümde indirme sonrasında çıkan “eksik model” hatası düzeltildi. Model APK'ya eklendi; ilk kurulumda tekrar indirme gerekmez. Bu APK önceki sürümle aynı anahtarla imzalanmıştır; mevcut uygulamanın üzerine kurulabilir.
+
 ## Telefona kurulum
 
-1. Yukarıdaki APK bağlantısından veya `downloads/COSMO-v0.1.0-debug.apk` dosyasından uygulamayı indir, telefona aktar ve aç. Android isterse yalnızca bu dosyayı açtığın uygulamaya kurulum izni ver. Bu APK geliştirme anahtarıyla imzalanmıştır.
-2. COSMO'da **Türkçe modeli indir** düğmesine bas. Resmî Vosk Türkçe modeli ilk kullanımda yaklaşık 35 MB indirilir. Kurulum için en az 200 MB boş alan ve internet bağlantısı önerilir. Model APK'nın içine eklenmemiştir.
+1. Yukarıdaki APK bağlantısından veya `downloads/COSMO-v0.1.1-debug.apk` dosyasından uygulamayı indir, telefona aktar ve aç. Android isterse yalnızca bu dosyayı açtığın uygulamaya kurulum izni ver. Bu APK geliştirme anahtarıyla imzalanmıştır. Eski sürüm varsa üzerine güncelle; notların korunur.
+2. COSMO'da **Türkçe modeli hazırla** düğmesine bas. APK içindeki resmî Vosk Türkçe modeli SHA-256 ile doğrulanıp telefonda açılır; bu adımda internet gerekmez. APK ve verileri için yaklaşık 250 MB boş alan önerilir. Hazırlama sırasında en az 80 MB boş alan gerekir. Tamamlanınca **Türkçe model hazır** yazısı görünür.
 3. **Dinlemeyi başlat** düğmesine bas; mikrofon ve Android 13+ bildirim izinlerini ver.
-4. **“Asistan, saat kaç?”** de. “COSMO”, “Kosmo”, “Kozmo” ve “Kozmos” yazımları da çağrı olarak kabul edilir. Türkçe model özel adı tanımazsa **Asistan** kullan. Adını tek başına söylediğinde sonraki komut için 10 saniye bekler.
+4. **“Asistan, saat kaç?”** de. Bu sürümde sesleniş **Asistan** sözcüğüdür; uygulamanın adı COSMO'dur. Gerçek Türkçe modelin sözlüğünde COSMO özel adı bulunmadığı doğrulandı. “Asistan”ı tek başına söylediğinde sonraki komut için 10 saniye bekler.
 5. Yanıtlar için telefonun metin okuma ayarlarında **çevrimdışı Türkçe ses** yüklü olmalıdır. Yoksa komutlar yine işlenir, yanıtlar ekranda gösterilir.
 
 Dinlemeyi uygulamadan, sürekli mikrofon bildiriminden veya **“Asistan, dinlemeyi durdur”** komutuyla kapatabilirsin. Uygulamadan başka bir ekrana geçmek dinlemeyi kapatmaz. Telefon yeniden başladığında veya uygulama zorla durdurulduğunda COSMO'yu açıp yeniden başlatmalısın.
@@ -54,7 +56,7 @@ Android'de bir uygulamaya “telefonun tüm özelliklerine erişim” veren tek 
 | Kamera (isteğe bağlı) | Yalnızca fener; fotoğraf/video çekilmez |
 | Medya sesi | Medya sesini ve etkin oynatıcıyı yönetme |
 | Uyanık tutma | Dinleme açıkken ses işlemenin sürmesi |
-| İnternet | Kullanıcının başlattığı Türkçe model indirmesi |
+| İnternet | Modelin dahil olmadığı özel derlemelerde resmî adresten yedek model indirme; dağıtılan APK modeli yerelden hazırlar |
 | Alarm | Sistem saat uygulamasında alarm/zamanlayıcı hazırlama |
 | Erişilebilirlik (isteğe bağlı) | Yalnızca kullanıcı komutuyla gezinme ve kaydırma |
 
@@ -95,6 +97,14 @@ adb shell am start -n com.cosmo.assistant/.MainActivity
 
 `assembleDebugAndroidTest` cihaz testlerini yalnız derler. `connectedDebugAndroidTest` bağlı ve kilidi açık bir Android cihaz/emülatör gerektirir. Üretim dağıtımı için ayrıca kişisel yayın anahtarı, imzalama ve mağaza hazırlığı gerekir; kaynak kodda yayın anahtarı yoktur.
 
+Gerçek paketlenmiş model arşivini ayrıca doğrulamak için:
+
+```bash
+python3 scripts/check-turkish-model.py app/src/main/assets/models/vosk-model-small-tr-0.3.zip
+```
+
+Betik sabit SHA-256 değerini, ZIP CRC'lerini, dosya yollarını ve gerçek Türkçe modelin eski düz dosya düzenini denetler. İsteğe bağlı `--library /path/to/trusted/libvosk.so` parametresi host üzerinde model yükleme ve 16 kHz tanıyıcı kontrolü yapar. Linux kontrolü fiziksel Android mikrofon testi değildir.
+
 ## Doğrulama
 
 Derleme ve test sonuçları [VALIDATION.md](VALIDATION.md) içinde tutulur. Mikrofon, hoparlör, gerçek Türkçe model ve ekran kapalı çalışma için fiziksel cihaz kontrol listesi de oradadır. Otomatik testler gerçek cihazda ses tanımanın doğrulandığı anlamına gelmez.
@@ -103,4 +113,4 @@ Derleme ve test sonuçları [VALIDATION.md](VALIDATION.md) içinde tutulur. Mikr
 
 Ses kaydı dosyası oluşturulmaz ve ses tanıma için bulut servisi kullanılmaz. Notlar ve son komut/yanıt bilgisi uygulamanın özel alanında tutulur; Android yedeklemesi kapalıdır. Kamera görüntüsü, rehber, SMS kutusu veya ekran metni toplanmaz. Ayrıntılar: [PRIVACY.md](PRIVACY.md).
 
-Vosk Android **0.3.75** (Apache-2.0), JNA **5.18.1** (Apache-2.0/LGPL-2.1+ seçeneği) kullanılır. Türkçe `vosk-model-small-tr-0.3` modeli Vosk'un resmî sunucusundan ayrı indirilir (model listesinde Apache-2.0). Model ve bağımlılıkların kendi lisansları geçerlidir. Yeni Vosk/JNA sürümlerinin arm64 kitaplıkları 16 KB bellek sayfalarına göre hizalanmıştır.
+Vosk Android **0.3.75** (Apache-2.0), JNA **5.18.1** (Apache-2.0/LGPL-2.1+ seçeneği) kullanılır. Resmî `vosk-model-small-tr-0.3` Türkçe modeli (Apache-2.0) APK'nın içindedir; kaynak arşiv ve model dosyaları değiştirilmemiştir. Model ve bağımlılıkların kendi lisansları geçerlidir. Yeni Vosk/JNA sürümlerinin arm64 kitaplıkları 16 KB bellek sayfalarına göre hizalanmıştır.

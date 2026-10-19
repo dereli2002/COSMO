@@ -54,7 +54,7 @@ public final class CosmoVoiceService extends Service implements RecognitionListe
     private static final String CHANNEL_ACTIONS = "cosmo_actions";
     private static final int NOTIFICATION_LISTENING = 1001;
     private static final int NOTIFICATION_ACTION = 1002;
-    private static final String WAITING = "COSMO veya asistan çağrısını bekliyor.";
+    private static final String WAITING = "Asistan çağrısını bekliyor.";
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private final WakeWordGate gate = new WakeWordGate();
@@ -139,7 +139,7 @@ public final class CosmoVoiceService extends Service implements RecognitionListe
                 return START_NOT_STICKY;
             }
             if (!VoiceModelManager.isReady(this)) {
-                fail("Önce COSMO ekranından Türkçe dil modelini indir.");
+                fail("Önce COSMO ekranından Türkçe modeli hazırla.");
                 return START_NOT_STICKY;
             }
             PowerManager power = getSystemService(PowerManager.class);

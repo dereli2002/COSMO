@@ -52,6 +52,7 @@ public final class MainActivity extends Activity {
     private EditText command;
     private TextToSpeech speaker;
     private boolean ttsReady;
+    private boolean bundledModel;
     private boolean downloadInProgress;
     private String modelError;
     private String lastServiceReply = "";
@@ -69,6 +70,8 @@ public final class MainActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         preferences = getSharedPreferences("cosmo", MODE_PRIVATE);
+        bundledModel = VoiceModelManager.hasBundledModel(this);
+        if (state != null) modelError = state.getString("model_error");
         buildInterface();
         speaker = new TextToSpeech(this, result -> {
             if (result == TextToSpeech.SUCCESS && speaker != null) {
@@ -111,7 +114,7 @@ public final class MainActivity extends Activity {
         frame.addView(scroll, new LinearLayout.LayoutParams(-1, -1));
         setContentView(frame);
 
-        TextView eyebrow = text("KİŞİSEL SESLİ ASİSTAN  /  0.1", 11, MINT);
+        TextView eyebrow = text("KİŞİSEL SESLİ ASİSTAN  /  0.1.1", 11, MINT);
         eyebrow.setLetterSpacing(.15f);
         page.addView(eyebrow);
         TextView title = text("COSMO", 44, TEXT);
@@ -126,7 +129,7 @@ public final class MainActivity extends Activity {
         status = text("●  Dinleme kapalı", 21, MINT);
         status.setId(R.id.listening_status);
         voice.addView(status);
-        detail = text("COSMO ya da Asistan diyerek seslen; ardından komutunu söyle.", 15, MUTED);
+        detail = text("Asistan diyerek seslen; ardından komutunu söyle.", 15, MUTED);
         spaced(voice, detail);
         listenButton = button("Dinlemeyi başlat", true);
         listenButton.setId(R.id.start_listening);
@@ -137,26 +140,28 @@ public final class MainActivity extends Activity {
 
         LinearLayout model = card(page);
         model.addView(text("01  /  Türkçe ses modeli", 17, TEXT));
-        modelStatus = text("İlk kullanımda yaklaşık 35 MB indirilir. Sonraki dinlemeler internetsizdir; seslerin sunucuya gönderilmez.", 14, MUTED);
+        modelStatus = text(modelSetupDescription(), 14, MUTED);
         spaced(model, modelStatus);
         progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         progress.setVisibility(View.GONE);
         spaced(model, progress);
-        modelButton = button("Türkçe modeli indir", false);
+        modelButton = button(bundledModel ? "Türkçe modeli hazırla" : "Türkçe modeli indir", false);
         modelButton.setId(R.id.model_download);
         modelButton.setOnClickListener(v -> {
             if (downloadInProgress) {
                 VoiceModelManager.cancelDownload();
-            } else new AlertDialog.Builder(this).setTitle("Türkçe modeli indir")
-                    .setMessage("Vosk Türkçe modeli alphacephei.com adresinden indirilir (yaklaşık 35 MB). İndirme sırasında bu ekranı açık tut. Model hazır olunca sesin yalnızca cihazda işlenir.")
-                    .setPositiveButton("İndir", (dialog, which) -> downloadModel())
+            } else new AlertDialog.Builder(this).setTitle(bundledModel ? "Türkçe modeli hazırla" : "Türkçe modeli indir")
+                    .setMessage(bundledModel
+                            ? "Türkçe ses modeli uygulamayla birlikte gelir; internet gerekmez. Dosyalar bu telefonda açılıp doğrulanacak. Hazırlanırken bu ekranı açık tut. Sesin yalnızca cihazda işlenir."
+                            : "Vosk Türkçe modeli alphacephei.com adresinden indirilir (yaklaşık 35 MB). İndirme sırasında bu ekranı açık tut. Model hazır olunca sesin yalnızca cihazda işlenir.")
+                    .setPositiveButton(bundledModel ? "Hazırla" : "İndir", (dialog, which) -> downloadModel())
                     .setNegativeButton("Vazgeç", null).show();
         });
         spaced(model, modelButton);
 
         LinearLayout test = card(page);
         test.addView(text("02  /  Bir komut dene", 17, TEXT));
-        spaced(test, text("Modeli indirmeden de yazılı komutları deneyebilirsin.", 14, MUTED));
+        spaced(test, text("Modeli hazırlamadan da yazılı komutları deneyebilirsin.", 14, MUTED));
         command = new EditText(this);
         command.setId(R.id.command_input);
         command.setTextColor(TEXT);
@@ -214,7 +219,7 @@ public final class MainActivity extends Activity {
         LinearLayout examples = card(page);
         examples.addView(text("Neler söyleyebilirsin?", 18, TEXT));
         spaced(examples, text("“Asistan, saat kaç?”\n“Asistan, pil durumu”\n“Asistan, feneri aç”\n“Asistan, sesi artır”\n“Asistan, not al yarın süt al”\n“Asistan, notlarımı oku”\n“Asistan, YouTube aç”\n“Asistan, Wi-Fi ayarları”\n“Asistan, 07:30 alarm kur”\n“Asistan, 5 dakika zamanlayıcı kur”\n“Asistan, Ankara haritada ara”\n“Asistan, dinlemeyi durdur”", 15, MUTED));
-        spaced(examples, text("COSMO adı modelde farklı yazılabilir. Sesleniş algılanmazsa “Asistan” kullan. Komutunu tek cümlede ya da seslendikten sonraki 10 saniyede söyle.", 12, MUTED));
+        spaced(examples, text("COSMO'nun bu sürümünde uyandırma sözcüğü “Asistan”. Komutunu tek cümlede ya da seslendikten sonraki 10 saniyede söyle.", 12, MUTED));
         spaced(examples, text("Arama ve mesajlarda telefonun kendi ekranı açılır; aramayı veya gönderimi sen tamamlarsın. Arka plandayken ekran açılması gereken işlemler için bildirime dokun. Kilit ekranından işlem onayı atlanmaz.", 12, MUTED));
         space(page, 12);
         page.addView(text("Hesap gerekmez. Notlar bu cihazda saklanır.\nBu sürüm belirli komutları uygular; serbest sohbet içermez.", 12, MUTED));
@@ -227,7 +232,8 @@ public final class MainActivity extends Activity {
             return;
         }
         if (!VoiceModelManager.isReady(this)) {
-            showReply("Önce Türkçe ses modelini indir. Yazılı komutları hemen kullanabilirsin.");
+            showReply((bundledModel ? "Önce Türkçe ses modelini hazırla." : "Önce Türkçe ses modelini indir.")
+                    + " Yazılı komutları hemen kullanabilirsin.");
             return;
         }
         ArrayList<String> needed = new ArrayList<>();
@@ -263,16 +269,23 @@ public final class MainActivity extends Activity {
     private void downloadModel() {
         modelError = null;
         downloadInProgress = true;
-        modelButton.setText(R.string.cancel_download);
+        modelButton.setText(bundledModel ? R.string.cancel_model_setup : R.string.cancel_download);
         progress.setVisibility(View.VISIBLE);
         progress.setIndeterminate(true);
-        VoiceModelManager.download(this, new VoiceModelManager.Listener() {
+        modelStatus.setText(R.string.preparing_model);
+        VoiceModelManager.download(this, createModelListener());
+    }
+
+    private VoiceModelManager.Listener createModelListener() {
+        return new VoiceModelManager.Listener() {
             @Override public void onProgress(int percent) {
                 runOnUiThread(() -> {
                     if (isDestroyed()) return;
                     progress.setIndeterminate(percent < 0);
                     if (percent >= 0) progress.setProgress(percent);
-                    modelStatus.setText(percent < 0 ? "Model hazırlanıyor…" : "Türkçe model indiriliyor: %" + percent);
+                    modelStatus.setText(percent >= 100 ? "✓ Türkçe model doğrulandı."
+                            : percent < 0 || percent >= 90 ? "Türkçe model açılıyor ve doğrulanıyor…"
+                            : "Türkçe model indiriliyor: %" + percent);
                 });
             }
             @Override public void onComplete() {
@@ -289,11 +302,11 @@ public final class MainActivity extends Activity {
                     if (isDestroyed()) return;
                     downloadInProgress = false;
                     progress.setVisibility(View.GONE);
-                    modelError = message + " İnternet bağlantını kontrol edip yeniden deneyebilirsin.";
+                    modelError = message;
                     refresh();
                 });
             }
-        });
+        };
     }
 
     private void executeTypedCommand() {
@@ -327,24 +340,24 @@ public final class MainActivity extends Activity {
         listenButton.setText(running ? "Dinlemeyi durdur" : "Dinlemeyi başlat");
         String serviceStatus = preferences.getString("voice_status", "");
         detail.setText(!serviceStatus.isEmpty() ? serviceStatus
-                : "COSMO ya da Asistan diyerek seslen; ardından komutunu söyle.");
+                : "Asistan diyerek seslen; ardından komutunu söyle.");
         boolean ready = VoiceModelManager.isReady(this);
         boolean wasDownloading = downloadInProgress;
         downloadInProgress = VoiceModelManager.isDownloading();
         if (downloadInProgress) {
-            modelButton.setText(R.string.cancel_download);
+            modelButton.setText(bundledModel ? R.string.cancel_model_setup : R.string.cancel_download);
             modelButton.setEnabled(true);
             progress.setVisibility(View.VISIBLE);
             if (!wasDownloading) {
                 progress.setIndeterminate(true);
-                modelStatus.setText(R.string.downloading_model);
+                modelStatus.setText(bundledModel ? "Türkçe model hazırlanıyor…" : getString(R.string.downloading_model));
             }
         } else {
             progress.setVisibility(View.GONE);
             modelStatus.setText(ready ? "✓ Türkçe model hazır. Ses çözümleme bu cihazda yapılır."
                     : modelError != null ? modelError
-                    : "İlk kullanımda yaklaşık 35 MB indirilir. Sonraki dinlemeler internetsizdir; seslerin sunucuya gönderilmez.");
-            modelButton.setText(ready ? "Türkçe model hazır" : "Türkçe modeli indir");
+                    : modelSetupDescription());
+            modelButton.setText(ready ? "Türkçe model hazır" : bundledModel ? "Türkçe modeli hazırla" : "Türkçe modeli indir");
             modelButton.setEnabled(!ready);
         }
         String last = preferences.getString("last_reply", "");
@@ -362,6 +375,12 @@ public final class MainActivity extends Activity {
 
     private void showReply(String message) { reply.setText(message); }
 
+    private String modelSetupDescription() {
+        return bundledModel
+                ? "İnternet gerekmez; Türkçe ses modeli uygulamayla birlikte gelir. İlk kullanımda modeli hazırla. Seslerin sunucuya gönderilmez."
+                : "İlk kullanımda yaklaşık 35 MB indirilir. Sonraki dinlemeler internetsizdir; seslerin sunucuya gönderilmez.";
+    }
+
     private void open(Intent intent) {
         try { startActivity(intent); }
         catch (ActivityNotFoundException | SecurityException exception) {
@@ -378,6 +397,11 @@ public final class MainActivity extends Activity {
     @Override protected void onPause() {
         main.removeCallbacks(refreshVisibleState);
         super.onPause();
+    }
+
+    @Override protected void onSaveInstanceState(Bundle state) {
+        state.putString("model_error", modelError);
+        super.onSaveInstanceState(state);
     }
 
     @Override protected void onDestroy() {

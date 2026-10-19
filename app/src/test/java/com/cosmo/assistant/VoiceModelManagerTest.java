@@ -1,13 +1,17 @@
 package com.cosmo.assistant;
 
+import android.content.Context;
+
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
 import java.io.File;
+import java.io.ByteArrayInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -16,12 +20,15 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import static org.junit.Assert.*;
 
-/** Exercises real ZIP/CRC/path behavior without network access or a large model fixture. */
+/** Exercises safe ZIP handling and the actual packaged Turkish model without network access. */
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 28)
 public class VoiceModelManagerTest {
@@ -32,6 +39,7 @@ public class VoiceModelManagerTest {
         Map<String, byte[]> entries = baseModel();
         entries.put(MODEL + "/graph/HCLr.fst", bytes("graph-left"));
         entries.put(MODEL + "/graph/Gr.fst", bytes("graph-right"));
+        entries.put(MODEL + "/graph/disambig_tid.int", bytes("1 2"));
         File destination = files.newFolder("dynamic");
         extract(archive(entries), destination);
         File model = new File(destination, MODEL);
@@ -50,6 +58,7 @@ public class VoiceModelManagerTest {
     @Test public void incompleteGraphOrEmptyAcousticModelIsNotReady() throws Exception {
         Map<String, byte[]> entries = baseModel();
         entries.put(MODEL + "/graph/HCLr.fst", bytes("missing-right-graph"));
+        entries.put(MODEL + "/graph/disambig_tid.int", bytes("1 2"));
         File destination = files.newFolder("incomplete");
         extract(archive(entries), destination);
         File model = new File(destination, MODEL);
@@ -59,6 +68,89 @@ public class VoiceModelManagerTest {
         assertTrue(validModel(model));
         Files.write(new File(model, "am/final.mdl").toPath(), new byte[0]);
         assertFalse(validModel(model));
+    }
+
+    @Test public void legacyFlatLayoutDoesNotRequireModernDirectories() throws Exception {
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+        for (String name : new String[]{"final.mdl", "mfcc.conf", "HCLr.fst", "Gr.fst", "disambig_tid.int"})
+            entries.put(MODEL + "/" + name, bytes("legacy"));
+        File destination = files.newFolder("legacy");
+        extract(archive(entries), destination);
+        File model = new File(destination, MODEL);
+        assertTrue(validModel(model));
+        assertFalse(new File(model, "am/final.mdl").exists());
+        assertFalse(new File(model, "conf/model.conf").exists());
+        assertTrue(new File(model, "disambig_tid.int").delete());
+        assertFalse(validModel(model));
+    }
+
+    @Test public void partialIvectorDirectoryIsNotAReadyModel() throws Exception {
+        Map<String, byte[]> entries = baseModel();
+        entries.put(MODEL + "/graph/HCLG.fst", bytes("static"));
+        entries.put(MODEL + "/ivector/final.ie", bytes("incomplete-ivector"));
+        File destination = files.newFolder("partial-ivector");
+        extract(archive(entries), destination);
+        File model = new File(destination, MODEL);
+        assertFalse(validModel(model));
+        for (String name : new String[]{"final.dubm", "final.mat", "global_cmvn.stats", "online_cmvn.conf", "splice.conf"})
+            Files.write(new File(model, "ivector/" + name).toPath(), bytes("ivector"));
+        assertTrue(validModel(model));
+    }
+
+    @Test public void differentArchiveCannotBypassThePinnedChecksum() throws Exception {
+        Method verify = VoiceModelManager.class.getDeclaredMethod("verifyArchive", java.io.InputStream.class);
+        verify.setAccessible(true);
+        InvocationTargetException error = assertThrows(InvocationTargetException.class,
+                () -> verify.invoke(null, new ByteArrayInputStream(bytes("not-the-official-model"))));
+        assertTrue(error.getCause() instanceof IOException);
+        assertTrue(error.getCause().getMessage().contains("SHA-256"));
+    }
+
+    @Test public void realPackagedTurkishModelInstallsOfflineAndCanBePreparedAgain() throws Exception {
+        Context context = RuntimeEnvironment.getApplication();
+        assertTrue(VoiceModelManager.hasBundledModel(context));
+        File model = VoiceModelManager.modelDirectory(context);
+        removeGeneratedModel(model);
+        try {
+            awaitPreparation(context);
+            assertTrue(VoiceModelManager.isReady(context));
+            assertTrue(new File(model, "final.mdl").length() > 1_000_000L);
+            assertTrue(new File(model, "Gr.fst").length() > 1_000_000L);
+            assertFalse(new File(model, "am").exists());
+            assertFalse(new File(model, "conf/model.conf").exists());
+            File sentinel = new File(model, "repeat-preparation-sentinel");
+            Files.write(sentinel.toPath(), bytes("keep-existing-installation"));
+            awaitPreparation(context);
+            assertTrue("Repeat preparation must reuse the valid model", sentinel.isFile());
+            assertTrue(VoiceModelManager.isReady(context));
+        } finally {
+            removeGeneratedModel(model);
+        }
+    }
+
+    private static void awaitPreparation(Context context) throws Exception {
+        CountDownLatch finished = new CountDownLatch(1);
+        AtomicReference<String> error = new AtomicReference<>();
+        AtomicReference<Boolean> readyAt100 = new AtomicReference<>(false);
+        VoiceModelManager.download(context, new VoiceModelManager.Listener() {
+            @Override public void onProgress(int percent) {
+                if (percent == 100) readyAt100.set(VoiceModelManager.isReady(context));
+                if (percent >= 0 && percent < 90) error.set("A packaged installation must not use network-download progress");
+            }
+            @Override public void onComplete() { finished.countDown(); }
+            @Override public void onError(String message) { error.set(message); finished.countDown(); }
+        });
+        assertTrue("Model preparation timed out", finished.await(30, TimeUnit.SECONDS));
+        assertNull("Model installation failed: " + error.get(), error.get());
+        assertTrue("100% may only be emitted after model readiness", readyAt100.get());
+        assertFalse(VoiceModelManager.isDownloading());
+    }
+
+    private static void removeGeneratedModel(File file) throws IOException {
+        if (!file.exists()) return;
+        File[] children = file.listFiles();
+        if (children != null) for (File child : children) removeGeneratedModel(child);
+        if (!file.delete()) throw new IOException("Test fixture cleanup failed: " + file);
     }
 
     @Test public void traversalCannotWriteOutsideDestination() throws Exception {

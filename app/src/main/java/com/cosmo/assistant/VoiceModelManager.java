@@ -1,6 +1,7 @@
 package com.cosmo.assistant;
 
 import android.content.Context;
+import android.os.StatFs;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -9,17 +10,26 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.io.InputStream;
 import java.net.URL;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import javax.net.ssl.HttpsURLConnection;
 
-/** Downloads the official Turkish Vosk model only after an explicit user action. */
+/** Installs the verified, packaged Turkish model after an explicit user action. */
 public final class VoiceModelManager {
     public static final String MODEL_NAME = "vosk-model-small-tr-0.3";
     public static final String MODEL_URL = "https://alphacephei.com/vosk/models/" + MODEL_NAME + ".zip";
+    public static final String MODEL_ARCHIVE_ASSET = "models/" + MODEL_NAME + ".zip";
+    // Official archive downloaded over verified HTTPS and checked with both ZIP CRC and Vosk.
+    public static final String MODEL_SHA256 = "8c8d07cec1bce31add14967c16891c84152cdf76d391e33c08278119b9ea96e5";
     private static final long MAX_ARCHIVE_BYTES = 90L * 1024L * 1024L;
     private static final long MAX_EXTRACTED_BYTES = 250L * 1024L * 1024L;
     private static final Object LOCK = new Object();
@@ -46,6 +56,18 @@ public final class VoiceModelManager {
 
     public static boolean isDownloading() {
         return worker != null;
+    }
+
+    public static boolean hasBundledModel(Context context) {
+        try {
+            String[] files = context.getAssets().list("models");
+            if (files != null) for (String name : files) {
+                if (name.equals(MODEL_NAME + ".zip")) return true;
+            }
+        } catch (IOException ignored) {
+            // A build without the packaged model can still use the verified HTTPS fallback.
+        }
+        return false;
     }
 
     public static void download(Context context, Listener listener) {
@@ -76,24 +98,50 @@ public final class VoiceModelManager {
         try {
             checkCancelled();
             if (!isReady(context)) {
+                // A process killed during extraction may leave its private temporary directory.
+                // Remove only our previous staging folders, never notes or the installed model.
+                File[] abandoned = context.getFilesDir().listFiles((dir, name) -> name.startsWith(".cosmo-model-"));
+                if (abandoned != null) for (File old : abandoned) deleteTree(old);
+                boolean bundled = hasBundledModel(context);
+                long requiredSpace = (bundled ? 80L : 120L) * 1024 * 1024;
+                long availableSpace = new StatFs(context.getFilesDir().getAbsolutePath()).getAvailableBytes();
+                if (availableSpace > 0 && availableSpace < requiredSpace) {
+                    throw new IOException("Modeli açmak için en az " + (bundled ? "80" : "120")
+                            + " MB boş alan gerekiyor. Telefonda yer açıp yeniden dene.");
+                }
                 if (!staging.mkdir()) throw new IOException("Geçici model klasörü oluşturulamadı.");
-                File archive = new File(staging, "model.zip");
-                downloadArchive(archive, listener);
-                checkCancelled();
-                listener.onProgress(91);
                 File extracted = new File(staging, "extracted");
                 if (!extracted.mkdir()) throw new IOException("Model klasörü oluşturulamadı.");
-                extractArchive(archive, extracted);
+                if (bundled) {
+                    listener.onProgress(-1);
+                    try (InputStream input = context.getAssets().open(MODEL_ARCHIVE_ASSET)) {
+                        verifyArchive(input);
+                    }
+                    checkCancelled();
+                    listener.onProgress(90);
+                    try (InputStream input = context.getAssets().open(MODEL_ARCHIVE_ASSET)) {
+                        extractArchive(input, extracted);
+                    }
+                } else {
+                    File archive = new File(staging, "model.zip");
+                    downloadArchive(archive, listener);
+                    checkCancelled();
+                    try (InputStream input = new FileInputStream(archive)) { verifyArchive(input); }
+                    listener.onProgress(90);
+                    extractArchive(archive, extracted);
+                }
+                listener.onProgress(95);
                 File candidate = new File(extracted, MODEL_NAME);
-                if (!validModel(candidate)) throw new IOException("İndirilen dil modeli eksik veya geçersiz.");
+                if (!validModel(candidate)) throw new IOException("Türkçe modelin gerekli dosyaları eksik veya geçersiz. Güncel COSMO APK'sını kurup modeli yeniden hazırla.");
                 checkCancelled();
                 installAtomically(candidate, modelDirectory(context));
             }
+            if (!isReady(context)) throw new IOException("Model kalıcı klasöre kurulamadı. Boş alanı kontrol edip yeniden hazırla.");
             listener.onProgress(100);
         } catch (Exception error) {
-            failure = cancelled || error instanceof InterruptedIOException
-                    ? "Dil modeli indirmesi iptal edildi."
-                    : "Dil modeli kurulamadı: " + safeMessage(error);
+            failure = cancelled || Thread.currentThread().isInterrupted()
+                    ? "Model hazırlama iptal edildi. Yeniden başlatabilirsin."
+                    : "Dil modeli kurulamadı: " + friendlyMessage(error);
         } finally {
             HttpsURLConnection current = connection;
             if (current != null) current.disconnect();
@@ -146,7 +194,7 @@ public final class VoiceModelManager {
                     total += read;
                     if (total > MAX_ARCHIVE_BYTES) throw new IOException("Model arşivi boyut sınırını aştı.");
                     output.write(buffer, 0, read);
-                    int progress = length > 0 ? (int) Math.min(90L, total * 90L / length) : 0;
+                    int progress = length > 0 ? (int) Math.min(89L, total * 89L / length) : 0;
                     if (progress != previous) {
                         listener.onProgress(progress);
                         previous = progress;
@@ -165,10 +213,14 @@ public final class VoiceModelManager {
     }
 
     private static void extractArchive(File archive, File destination) throws IOException {
+        try (InputStream input = new FileInputStream(archive)) { extractArchive(input, destination); }
+    }
+
+    private static void extractArchive(InputStream archive, File destination) throws IOException {
         String root = destination.getCanonicalPath() + File.separator;
         long total = 0;
         int entries = 0;
-        try (ZipInputStream zip = new ZipInputStream(new BufferedInputStream(new FileInputStream(archive)))) {
+        try (ZipInputStream zip = new ZipInputStream(new BufferedInputStream(archive))) {
             ZipEntry entry;
             byte[] buffer = new byte[32 * 1024];
             while ((entry = zip.getNextEntry()) != null) {
@@ -219,15 +271,23 @@ public final class VoiceModelManager {
     }
 
     private static boolean validModel(File root) {
-        String[] required = {"am/final.mdl", "conf/mfcc.conf", "conf/model.conf",
-                "graph/phones/word_boundary.int"};
-        for (String relative : required) {
-            File file = new File(root, relative);
-            if (!file.isFile() || file.length() <= 0) return false;
+        // Vosk's official Turkish 0.3 model uses the legacy flat layout. It has no am/,
+        // conf/ or graph/ directory and no model.conf; do not reject it as incomplete.
+        boolean legacy = nonEmpty(root, "final.mdl") && nonEmpty(root, "mfcc.conf") && graphReady(root, "");
+        boolean modern = nonEmpty(root, "am/final.mdl") && nonEmpty(root, "conf/mfcc.conf")
+                && nonEmpty(root, "conf/model.conf") && graphReady(root, "graph/");
+        if (!legacy && !modern) return false;
+        if (new File(root, "ivector").exists()) {
+            String[] ivectorFiles = {"final.ie", "final.dubm", "final.mat", "global_cmvn.stats", "online_cmvn.conf", "splice.conf"};
+            for (String name : ivectorFiles) if (!nonEmpty(root, "ivector/" + name)) return false;
         }
-        // Vosk supports both a static graph and a compact two-part dynamic graph.
-        return nonEmpty(root, "graph/HCLG.fst")
-                || (nonEmpty(root, "graph/HCLr.fst") && nonEmpty(root, "graph/Gr.fst"));
+        return true;
+    }
+
+    private static boolean graphReady(File root, String prefix) {
+        return nonEmpty(root, prefix + "HCLG.fst")
+                || (nonEmpty(root, prefix + "HCLr.fst") && nonEmpty(root, prefix + "Gr.fst")
+                && nonEmpty(root, prefix + "disambig_tid.int"));
     }
 
     private static boolean nonEmpty(File root, String relative) {
@@ -237,6 +297,34 @@ public final class VoiceModelManager {
 
     private static void checkCancelled() throws InterruptedIOException {
         if (cancelled || Thread.currentThread().isInterrupted()) throw new InterruptedIOException("İptal edildi.");
+    }
+
+    private static void verifyArchive(InputStream input) throws IOException {
+        MessageDigest digest;
+        try { digest = MessageDigest.getInstance("SHA-256"); }
+        catch (NoSuchAlgorithmException impossible) { throw new IOException("SHA-256 doğrulaması kullanılamıyor.", impossible); }
+        byte[] buffer = new byte[32 * 1024];
+        long total = 0;
+        int count;
+        while ((count = input.read(buffer)) != -1) {
+            checkCancelled();
+            total += count;
+            if (total > MAX_ARCHIVE_BYTES) throw new IOException("Model arşivi boyut sınırını aştı.");
+            digest.update(buffer, 0, count);
+        }
+        StringBuilder checksum = new StringBuilder();
+        for (byte value : digest.digest()) checksum.append(String.format(Locale.ROOT, "%02x", value & 0xff));
+        if (!MODEL_SHA256.equals(checksum.toString())) {
+            throw new IOException("Türkçe modelin SHA-256 doğrulaması başarısız. Güncel APK'yı yeniden indirip mevcut uygulamanın üzerine kur.");
+        }
+    }
+
+    private static String friendlyMessage(Exception error) {
+        if (error instanceof SocketTimeoutException) return "Model sunucusu zamanında yanıt vermedi. İnternet bağlantısını kontrol edip tekrar dene.";
+        if (error instanceof UnknownHostException) return "Model sunucusuna ulaşılamadı. İnternet bağlantısını kontrol edip tekrar dene.";
+        String message = safeMessage(error);
+        if (message.contains("ENOSPC") || message.contains("No space left")) return "Telefonda yeterli boş alan yok. Yer açıp modeli yeniden hazırla.";
+        return message;
     }
 
     private static String safeMessage(Exception error) {

@@ -1,12 +1,15 @@
 package com.cosmo.assistant;
 
 import android.Manifest;
+import android.app.AlertDialog;
 import android.app.Application;
 import android.app.KeyguardManager;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.PermissionInfo;
+import android.os.Looper;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -24,6 +27,8 @@ import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowAlertDialog;
+import org.robolectric.util.ReflectionHelpers;
 
 import java.util.Arrays;
 
@@ -84,7 +89,8 @@ public class MainActivityTest {
     @Test public void startingWithoutModelExplainsRequirementAndNeverStartsMicrophoneService() {
         assertFalse(VoiceModelManager.isReady(activity));
         activity.findViewById(R.id.start_listening).performClick();
-        assertTrue(response().contains("Önce Türkçe ses modelini indir"));
+        assertTrue(response().contains(VoiceModelManager.hasBundledModel(activity)
+                ? "Önce Türkçe ses modelini hazırla" : "Önce Türkçe ses modelini indir"));
         assertTrue(response().contains("Yazılı komutları"));
         assertFalse(CosmoVoiceService.running);
         assertNull(Shadows.shadowOf(RuntimeEnvironment.getApplication()).getNextStartedService());
@@ -111,6 +117,60 @@ public class MainActivityTest {
         send("saat kaç");
         assertTrue("Unexpected clock response: " + response(),
                 response().matches("Saat (?:[01]\\d|2[0-3]):[0-5]\\d"));
+    }
+
+    @Test public void bundledModelPreparationDoesNotAskForAnInternetDownload() {
+        assertTrue(VoiceModelManager.hasBundledModel(activity));
+        Button prepare = activity.findViewById(R.id.model_download);
+        assertEquals("Türkçe modeli hazırla", prepare.getText().toString());
+        assertTrue(modelStatus().contains("İnternet gerekmez"));
+        prepare.performClick();
+        AlertDialog dialog = ShadowAlertDialog.getLatestAlertDialog();
+        assertNotNull(dialog);
+        assertEquals("Hazırla", dialog.getButton(DialogInterface.BUTTON_POSITIVE).getText().toString());
+        assertTrue(Shadows.shadowOf(dialog).getMessage().toString().contains("internet gerekmez"));
+        dialog.dismiss();
+    }
+
+    @Test public void extractionProgressIsDescribedAsPreparationBeforeModelIsVerified() {
+        VoiceModelManager.Listener listener = modelListener();
+        listener.onProgress(42);
+        Shadows.shadowOf(Looper.getMainLooper()).idle();
+        assertEquals("Türkçe model indiriliyor: %42", modelStatus());
+
+        listener.onProgress(91);
+        Shadows.shadowOf(Looper.getMainLooper()).idle();
+        assertEquals("Türkçe model açılıyor ve doğrulanıyor…", modelStatus());
+        assertFalse(modelStatus().contains("%100"));
+
+        listener.onProgress(100);
+        Shadows.shadowOf(Looper.getMainLooper()).idle();
+        assertEquals("✓ Türkçe model doğrulandı.", modelStatus());
+    }
+
+    @Test public void modelFailureKeepsItsSpecificAdviceAcrossRefreshAndRecreation() {
+        String failure = "Dil modeli kurulamadı: Yeterli boş alan yok. Yer açıp yeniden dene.";
+        modelListener().onError(failure);
+        Shadows.shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(failure, modelStatus());
+        assertFalse(modelStatus().contains("İnternet bağlantını"));
+        assertTrue(activity.findViewById(R.id.model_download).isEnabled());
+
+        controller.pause().resume();
+        Shadows.shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(failure, modelStatus());
+
+        controller.recreate();
+        activity = controller.get();
+        assertEquals(failure, modelStatus());
+    }
+
+    private VoiceModelManager.Listener modelListener() {
+        return ReflectionHelpers.callInstanceMethod(activity, "createModelListener");
+    }
+
+    private String modelStatus() {
+        return ((TextView) ReflectionHelpers.getField(activity, "modelStatus")).getText().toString();
     }
 
     private void send(String command) {

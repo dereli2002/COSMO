@@ -11,6 +11,8 @@
     <string name="app_name">COSMO</string>
     <string name="navigation_opt_in">Sesli gezinme  ·  isteğe bağlı</string>
     <string name="cancel_download">İndirmeyi iptal et</string>
+    <string name="cancel_model_setup">Hazırlamayı iptal et</string>
+    <string name="preparing_model">Türkçe model hazırlanıyor…</string>
     <string name="downloading_model">Türkçe model indiriliyor…</string>
     <string name="permission_status">Mikrofon: %1$s  •  Fener: %2$s\nGezinme: %3$s</string>
     <string name="allowed">izinli</string>
